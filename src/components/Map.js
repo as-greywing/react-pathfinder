@@ -4,10 +4,9 @@ import mapboxgl, { LngLatBounds } from "mapbox-gl";
 
 // Style Imports
 import "mapbox-gl/dist/mapbox-gl.css";
-import generateFeatureCollection from "./utils/GenerateFeature";
+import generateFeatureCollection from "../utils/GenerateFeature";
 
-const accessToken =
-  "pk.eyJ1IjoiZ3JleXdpbmctb3BlcmF0aW9ucyIsImEiOiJja3ZjN2RiaHgwOTgzMndudTRuMXRna25hIn0.98LQ0sAmH9ccltQv3bs4Pw";
+const accessToken = process.env.REACT_APP_MAP_ACCESS_TOKEN;
 
 mapboxgl.accessToken = accessToken;
 
@@ -51,7 +50,7 @@ const generateGeoJSON = (paths) => {
   });
 };
 
-export default function FlotillaMap({ paths, gwPaths, network: networkMap }) {
+export default function FlotillaMap({ paths, gwPaths, ngPaths, network: networkMap }) {
   const mapContainer = useRef(null);
   const mapRef = useRef();
 
@@ -97,7 +96,6 @@ export default function FlotillaMap({ paths, gwPaths, network: networkMap }) {
 
   // render geojson path result
   useEffect(() => {
-    
     const map = getMap();
     if (map && mapLoaded) {
       if (paths.length) {
@@ -178,6 +176,47 @@ export default function FlotillaMap({ paths, gwPaths, network: networkMap }) {
       }
     }
   }, [gwPaths, mapLoaded]);
+
+  // render Ngraph path
+  useEffect(() => {
+    const map = getMap();
+    if (map && mapLoaded) {
+      if (ngPaths.length) {
+
+        if (map.map.getSource("ngPaths")) {
+          map.map.getSource("ngPaths").setData(generateGeoJSON(ngPaths));
+        } else {
+          map.map.addSource("ngPaths", {
+            type: "geojson",
+            data: generateGeoJSON(ngPaths),
+          });
+        }
+        if (map.map.getSource("ngPaths")) {
+          if (map.map.getLayer("ngPaths")) {
+            map.map.removeLayer("ngPaths");
+          }
+          map.map.addLayer({
+            id: "ngPaths",
+            source: "ngPaths",
+            type: "line",
+            paint: {
+              "line-color": "#e8335a",
+              "line-width": 4,
+            },
+            layout: {
+              "line-join": "round",
+              "line-cap": "round",
+            },
+          });
+        } else {
+          console.log("no source");
+        }
+      } else {
+        if (map.map.getSource("ngPaths")) map.map.removeSource("ngPaths");
+        if (map.map.getLayer("ngPaths")) map.map.removeLayer("ngPaths");
+      }
+    }
+  }, [ngPaths, mapLoaded]);
 
   useEffect(() => {
     let statusCheckInterval = window.setInterval(() => {

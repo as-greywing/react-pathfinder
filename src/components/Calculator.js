@@ -1,94 +1,38 @@
-import * as turf from "turf-point";
-import { Form, Formik, useField } from "formik";
-import { useEffect, useState } from "react";
+import { Form, Formik } from "formik";
+import { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import localforage from "localforage";
-import PathFinder from "./geojson-path-finder";
+import path from "ngraph.path";
+import { distance, point } from "turf";
+
 import Map from "./Map";
-import { processMeridianCut } from "./utils/Misc";
+import InputField from "./InputField";
 
-const initialWaypoints = {
-  example1: [
-    { longitude: 103.7, latitude: 1.33333 },
-    { longitude: 106.718, latitude: 10.7587 },
-  ],
-  example2: [
-    {
-      longitude: 23.887878124569756,
-      latitude: 57.02899934855821,
-    },
-    {
-      longitude: 22.912279265021315,
-      latitude: 40.60778596498325,
-    },
-    {
-      longitude: -74.36706778626323,
-      latitude: 11.115138670698153,
-    },
-  ],
-  example3: [
-    {
-      longitude: 23.887878124569756,
-      latitude: 57.02899934855821,
-    },
-    {
-      longitude: 22.912279265021315,
-      latitude: 40.60778596498325,
-    },
-    {
-      longitude: -74.36706778626323,
-      latitude: 11.115138670698153,
-    },
-    { longitude: 151.22303590060116, latitude: -33.85865171521903 },
-  ],
-  example4: [
-    {
-      longitude: 162.47096813346838,
-      latitude: 56.18343589352472,
-    },
-    {
-      longitude: -134.91796826786023,
-      latitude: 58.432208961053355,
-    },
-  ],
-  example5: [
-    {
-      longitude: 23.887878124569756,
-      latitude: 57.02899934855821,
-    },
-    {
-      longitude: 22.912279265021315,
-      latitude: 40.60778596498325,
-    },
-    {
-      longitude: -74.36706778626323,
-      latitude: 11.115138670698153,
-    },
-    { longitude: 151.22303590060116, latitude: -33.85865171521903 },
-    { longitude: 100.56384058167184, latitude: 13.698188331830577 },
-  ],
-};
-
-const InputField = (props) => {
-  const [field, meta] = useField(props);
-  const isInvalid = meta.touched && meta.error;
-  return (
-    <>
-      <input className="form-control" {...field} {...props} />
-      {isInvalid && <p>{meta.error}</p>}
-    </>
-  );
-};
+import PathFinder from "../libs/gpf";
+import {
+  geojsonToPath,
+  getNearestNeighbour,
+  processMeridianCut,
+} from "../utils/Misc";
+import { initialWaypoints } from "../constants";
 
 const Finder = () => {
-  const [result, setResult] = useState([]);
-  const [gwResult, setGwResult] = useState([]);
-  const [resultStatus, setResultStatus] = useState("not-started");
-  const [gwResultStatus, setGwResultStatus] = useState("not-started");
   const [network, setNetwork] = useState(null);
+
+  const [result, setResult] = useState([]);
+  const [resultStatus, setResultStatus] = useState("not-started");
+
+  const [gwResult, setGwResult] = useState([]);
+  const [gwResultStatus, setGwResultStatus] = useState("not-started");
   const [useGwRoute, setUseGwRoute] = useState(false);
+
+  const [graph, setGraph] = useState(null);
+  const [ngResult, setNgResult] = useState([]);
+  const [ngResultStatus, setNgResultStatus] = useState("not-started");
+
   const [endTime, setEndTime] = useState(0);
   const [endTimeGw, setEndTimeGw] = useState(0);
+  const [endTimeNg, setEndTimeNg] = useState(0);
 
   /**
    * Fetch the network json from the endpoint, if not from indexedDB
@@ -107,6 +51,70 @@ const Finder = () => {
     }
     fetch();
   }, []);
+
+  useEffect(() => {
+    if (!network) return;
+    setGraph(geojsonToPath(network));
+  }, [network]);
+
+  /**
+   * Calculate the path using ngraph
+   */
+  const getNGPath = useCallback(
+    (waypoints) => {
+      if (!graph) return [];
+      const aStarFunc = path.aStar(graph.graph, {
+        distance(fromNode, toNode) {
+          return distance(
+            point([fromNode.data.x, fromNode.data.y]),
+            point([toNode.data.x, toNode.data.y])
+          );
+        },
+        heuristic(fromNode, toNode) {
+          return distance(
+            point([fromNode.data.x, fromNode.data.y]),
+            point([toNode.data.x, toNode.data.y])
+          );
+        },
+      });
+
+      const paths = waypoints.reduce((acc, waypoint, index) => {
+        if (index + 1 < waypoints.length) {
+          const _coor1 = getNearestNeighbour(
+            [waypoint.longitude, waypoint.latitude],
+            graph.vertices
+          );
+          const _coor2 = getNearestNeighbour(
+            [waypoints[index + 1].longitude, waypoints[index + 1].latitude],
+            graph.vertices
+          );
+          // Check coordinates if the distance between the 2 longitudes are greater than 180.
+          // const [coor1, coor2, changedIndex] = processMeridianCut(
+          //   _coor1.split(","),
+          //   _coor2.split(",")
+          // );
+          // console.log("changing", changedIndex);
+
+          // const result = aStarFunc.find(coor1.join(","), coor2.join(","));
+          const result = aStarFunc.find(_coor1, _coor2);
+          if (result) {
+            acc.push(
+              result.map((eachNode) => [eachNode.data.x, eachNode.data.y])
+            );
+          }
+        }
+        return acc;
+      }, []);
+
+      if (paths.length) {
+        setNgResult(paths);
+        setNgResultStatus("calculated");
+      } else {
+        setNgResultStatus("No result..");
+      }
+    },
+    [graph]
+  );
 
   /**
    * Calculate the path using grey-wing's modified searoute endpoint
@@ -164,8 +172,8 @@ const Finder = () => {
             _coor2
           );
 
-          const point1 = turf(coor1);
-          const point2 = turf(coor2);
+          const point1 = point(coor1);
+          const point2 = point(coor2);
           const result = pathFinder.findPath(point1, point2);
 
           if (result) {
@@ -186,8 +194,8 @@ const Finder = () => {
                 lastCalculatedCoordinate[0] + 360,
                 lastCalculatedCoordinate[1],
               ];
-              const point1 = turf(modifiedStartCoordinate);
-              const point2 = turf(finalDestination);
+              const point1 = point(modifiedStartCoordinate);
+              const point2 = point(finalDestination);
               const secondResult = pathFinder.findPath(point1, point2);
               acc.push(secondResult.path);
             }
@@ -231,13 +239,25 @@ const Finder = () => {
     await getPath(waypoints, precision);
     const endTime = performance.now();
     setEndTime(Math.round(endTime - startTime, 0));
+
+    const startTimeNg = performance.now();
+    setNgResultStatus("calculating");
+    getNGPath(waypoints);
+    const endTimeNg = performance.now();
+    setEndTimeNg(Math.round(endTimeNg - startTimeNg, 0));
+
     return Promise.resolve();
   };
 
   return (
     <div className="d-flex h-100">
       <div className="map w-100 h-100">
-        <Map network={network} paths={result} gwPaths={gwResult} />
+        <Map
+          network={network}
+          paths={result}
+          gwPaths={gwResult}
+          ngPaths={ngResult}
+        />
       </div>
       <div
         className="p-3 d-flex gap-2 flex-column h-100"
@@ -332,6 +352,10 @@ const Finder = () => {
             </p>
             <p style={{ color: "#f2eaa0" }}>Geojson Path Finder</p>
             {resultStatus} {resultStatus === "calculated" && `${endTime}ms`}
+            <p></p>
+            <p style={{ color: "#e8335a" }}>NGraph</p>
+            {ngResultStatus}{" "}
+            {ngResultStatus === "calculated" && `${endTimeNg}ms`}
             <p></p>
           </div>
         </div>
