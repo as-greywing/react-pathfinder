@@ -3,21 +3,24 @@ import { useCallback, useEffect, useState } from "react";
 import axios from "axios";
 import localforage from "localforage";
 import path from "ngraph.path";
-import { distance, point } from "turf";
+import { point } from "turf";
 
 import Map from "./Map";
 import InputField from "./InputField";
 
 import PathFinder from "../libs/gpf";
 import {
-  geojsonToPath,
+  aStarOption,
+  geojsonToGraph,
   getNearestNeighbour,
+  modifyGeoJSON,
   processMeridianCut,
 } from "../utils/Misc";
 import { initialWaypoints } from "../constants";
 
 const Finder = () => {
   const [network, setNetwork] = useState(null);
+  const [negativeExtNetwork, setNegativeExtNetwork] = useState(null);
 
   const [result, setResult] = useState([]);
   const [resultStatus, setResultStatus] = useState("not-started");
@@ -27,6 +30,8 @@ const Finder = () => {
   const [useGwRoute, setUseGwRoute] = useState(false);
 
   const [graph, setGraph] = useState(null);
+  const [negativeGraph, setNegativeGraph] = useState(null);
+
   const [ngResult, setNgResult] = useState([]);
   const [ngResultStatus, setNgResultStatus] = useState("not-started");
 
@@ -34,7 +39,6 @@ const Finder = () => {
   const [endTimeGw, setEndTimeGw] = useState(0);
   const [endTimeNg, setEndTimeNg] = useState(0);
   const [pathFinder, setPathFinder] = useState(null);
-
 
   /**
    * Fetch the network json from the endpoint, if not from indexedDB
@@ -49,6 +53,7 @@ const Finder = () => {
         setNetwork(data);
       } else {
         setNetwork(hasNetwork);
+        setNegativeExtNetwork(modifyGeoJSON(hasNetwork, false));
       }
     }
     fetch();
@@ -56,11 +61,16 @@ const Finder = () => {
 
   useEffect(() => {
     if (!network) return;
-    setGraph(geojsonToPath(network));
-    setPathFinder(new PathFinder(network, {
-      precision: 0.0001,
-    }));
-  }, [network]);
+    setGraph(geojsonToGraph(network));
+    if (negativeExtNetwork) {
+      setNegativeGraph(geojsonToGraph(negativeExtNetwork));
+    }
+    setPathFinder(
+      new PathFinder(network, {
+        precision: 0.0001,
+      })
+    );
+  }, [network, negativeExtNetwork]);
 
   /**
    * Calculate the path using ngraph
@@ -68,20 +78,9 @@ const Finder = () => {
   const getNGPath = useCallback(
     (waypoints) => {
       if (!graph) return [];
-      const aStarFunc = path.aStar(graph.graph, {
-        distance(fromNode, toNode) {
-          return distance(
-            point([fromNode.data.x, fromNode.data.y]),
-            point([toNode.data.x, toNode.data.y])
-          );
-        },
-        heuristic(fromNode, toNode) {
-          return distance(
-            point([fromNode.data.x, fromNode.data.y]),
-            point([toNode.data.x, toNode.data.y])
-          );
-        },
-      });
+      if (!negativeGraph) return [];
+      const aStarFunc = path.aStar(graph.graph, aStarOption);
+      const aStarFuncNegative = path.aStar(negativeGraph.graph, aStarOption);
 
       const paths = waypoints.reduce((acc, waypoint, index) => {
         if (index + 1 < waypoints.length) {
@@ -94,23 +93,54 @@ const Finder = () => {
             graph.vertices
           );
           // Check coordinates if the distance between the 2 longitudes are greater than 180.
-          // const [coor1, coor2, changedIndex] = processMeridianCut(
-          //   _coor1.split(","),
-          //   _coor2.split(",")
-          // );
-          // console.log("changing", changedIndex);
+          const [coor1, coor2, changedIndex] = processMeridianCut(
+            _coor1.split(","),
+            _coor2.split(",")
+          );
 
-          // const result = aStarFunc.find(coor1.join(","), coor2.join(","));
-          const result = aStarFunc.find(_coor1, _coor2);
-          if (result) {
-            acc.push(
-              result.map((eachNode) => [eachNode.data.x, eachNode.data.y])
+          if (changedIndex !== undefined) {
+            const result = aStarFuncNegative.find(
+              coor1.join(","),
+              coor2.join(",")
             );
+
+            const firstArray = [];
+            const secondArray = [];
+            let firstIntersection = true;
+
+            let orderedArray = result.sort((a, b) => Number(b) - Number(a));
+            if (changedIndex === 1) {
+              orderedArray.reverse();
+            }
+            orderedArray.forEach((node) => {
+              if (Number(node.data.x) <= -180) {
+                if (firstIntersection) {
+                  firstArray.push([node.data.x, node.data.y]);
+                  firstIntersection = false;
+                }
+                secondArray.push([Number(node.data.x) + 360, node.data.y]);
+              } else {
+                firstArray.push([node.data.x, node.data.y]);
+              }
+            });
+            if (result) {
+              acc.push(firstArray);
+              acc.push(secondArray);
+            }
+          } else {
+            const result = aStarFunc.find(_coor1, _coor2);
+            if (result) {
+              // console.log("skip")
+              acc.push(
+                result.map((eachNode) => [eachNode.data.x, eachNode.data.y])
+              );
+            }
           }
         }
         return acc;
       }, []);
 
+      console.log("Finally", paths);
       if (paths.length) {
         setNgResult(paths);
         setNgResultStatus("calculated");
@@ -118,7 +148,7 @@ const Finder = () => {
         setNgResultStatus("No result..");
       }
     },
-    [graph]
+    [graph, negativeGraph]
   );
 
   /**
@@ -161,10 +191,10 @@ const Finder = () => {
 
   const getPath = async (waypoints, precision) => {
     return new Promise((res) => {
-      if(pathFinder) {
+      if (pathFinder) {
         const paths = waypoints.reduce((acc, waypoint, index) => {
           if (index + 1 < waypoints.length) {
-            console.time("Prepping index "+index);
+            console.time("Prepping index " + index);
             const _coor1 = [waypoint.longitude, waypoint.latitude];
             const _coor2 = [
               waypoints[index + 1].longitude,
@@ -178,14 +208,14 @@ const Finder = () => {
 
             const point1 = point(coor1);
             const point2 = point(coor2);
-            console.timeEnd("Prepping index "+index);
-            console.time("Pathfinding for index "+index);
+            console.timeEnd("Prepping index " + index);
+            console.time("Pathfinding for index " + index);
             const result = pathFinder.findPath(point1, point2);
-            console.timeEnd("Pathfinding for index "+index);
+            console.timeEnd("Pathfinding for index " + index);
 
-            console.time("Processing resut for index "+index);
+            console.time("Processing resut for index " + index);
             if (result) {
-              acc.push([waypoints[index].longitude, waypoints[index].latitude]);
+              // acc.push([waypoints[index].longitude, waypoints[index].latitude]);
               acc.push(result.path);
 
               // In the situation where the routing crosses the meridian, we need to carry out 2 path calculations istead of 1.
@@ -208,15 +238,15 @@ const Finder = () => {
                 acc.push(secondResult.path);
               }
             }
-            console.timeEnd("Processing resut for index "+index);
+            console.timeEnd("Processing resut for index " + index);
           }
           return acc;
         }, []);
         if (paths.length) {
-          paths.push([
-            waypoints[waypoints.length - 1].longitude,
-            waypoints[waypoints.length - 1].latitude,
-          ]);
+          // paths.push([
+          //   waypoints[waypoints.length - 1].longitude,
+          //   waypoints[waypoints.length - 1].latitude,
+          // ]);
           res(paths);
         } else {
           res([]);
@@ -224,6 +254,7 @@ const Finder = () => {
       }
     }).then((result) => {
       if (result.length) {
+        console.log("Finally", result);
         setResult(result);
         setResultStatus("calculated");
       } else {
@@ -260,8 +291,8 @@ const Finder = () => {
   };
 
   const handleMapClick = (e) => {
-    console.log("Clicked - ",e.lngLat);
-  }
+    console.log("Clicked - ", e.lngLat);
+  };
 
   return (
     <div className="d-flex h-100">
@@ -283,7 +314,7 @@ const Finder = () => {
             <Formik
               initialValues={{
                 precision: 0.0001,
-                waypoints: initialWaypoints.example5,
+                waypoints: initialWaypoints.example2,
               }}
               onSubmit={handleSubmit}
             >

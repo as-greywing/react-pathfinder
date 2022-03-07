@@ -58,6 +58,10 @@ const initialWaypoints = {
     { longitude: 151.22303590060116, latitude: -33.85865171521903 },
     { longitude: 100.56384058167184, latitude: 13.698188331830577 },
   ],
+  example6: [
+    { longitude: 150.9, latitude: -37.3 },
+    { longitude: -83.73, latitude: 23.365 },
+  ],
 };
 
 export { initialWaypoints };

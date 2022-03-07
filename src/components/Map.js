@@ -50,7 +50,13 @@ const generateGeoJSON = (paths) => {
   });
 };
 
-export default function FlotillaMap({ paths, gwPaths, ngPaths, onClick, network: networkMap }) {
+export default function FlotillaMap({
+  paths,
+  gwPaths,
+  ngPaths,
+  onClick,
+  network: networkMap,
+}) {
   const mapContainer = useRef(null);
   const mapRef = useRef();
 
@@ -62,7 +68,7 @@ export default function FlotillaMap({ paths, gwPaths, ngPaths, onClick, network:
   useEffect(() => {
     const map = getMap();
     if (map && mapLoaded) {
-      map.map.on('click', (e) => {
+      map.map.on("click", (e) => {
         onClick(e);
         // {
         //     lngLat: {
@@ -77,7 +83,7 @@ export default function FlotillaMap({ paths, gwPaths, ngPaths, onClick, network:
         //      target: {...},
         //      type: "click"
         // }
-        });
+      });
 
       if (map.map.getSource("network")) {
         map.map.getSource("network").setData(networkMap);
@@ -156,9 +162,6 @@ export default function FlotillaMap({ paths, gwPaths, ngPaths, onClick, network:
     const map = getMap();
     if (map && mapLoaded) {
       if (gwPaths.length) {
-        // const newData = generateGeoJSON(gwPaths);
-        // console.log("adding Line GW", newData);
-
         if (map.map.getSource("gwPaths")) {
           map.map.getSource("gwPaths").setData(generateGeoJSON(gwPaths));
         } else {
@@ -199,7 +202,6 @@ export default function FlotillaMap({ paths, gwPaths, ngPaths, onClick, network:
     const map = getMap();
     if (map && mapLoaded) {
       if (ngPaths.length) {
-
         if (map.map.getSource("ngPaths")) {
           map.map.getSource("ngPaths").setData(generateGeoJSON(ngPaths));
         } else {

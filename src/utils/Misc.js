@@ -1,7 +1,9 @@
 import createGraph from "ngraph.graph";
+import { distance, point } from "turf";
 
 /**
- *
+ * This function checks if there's an intersection between two coordinates between the meridian at -180 and 180 degree.
+ * TODO: this might be wrong -____- but it seems to work.
  * @param {coordinates} coor1
  * @param {coordinates} coor2
  * @returns [coordinates, coordinates, index of changed coordinate]
@@ -40,8 +42,72 @@ const getNearestNeighbour = ([longO, latO], vertices) => {
   return nearest[0];
 };
 
-const geojsonToPath = (networkGeoJSON) => {
-  console.log("Receiving network,", networkGeoJSON);
+/**
+ * This function cycles through the coordinates and checks if it should be shifted by 1 360 degree cycle.
+ * If required, it will add a new feature with the new coordinates ontop of the existing feature.
+ * @param {geojson} originalFeatureCollection 
+ * @param {boolean} isPositive 
+ * @returns geojson
+ */
+const modifyGeoJSON = (originalFeatureCollection, isPositive) => {
+  const features = [];
+  originalFeatureCollection.features.forEach((feature) => {
+    if (feature.geometry && feature.geometry.coordinates) {
+      let hasToAddPositive = false;
+      let hasToAddNegative = false;
+
+      // check if there are new features to add
+      feature.geometry.coordinates.forEach((coord) => {
+        if (isPositive) {
+          if (coord[0] < 0) {
+            hasToAddPositive = true;
+          }
+        } else {
+          if (coord[0] >= 0) {
+            hasToAddNegative = true;
+          }
+        }
+      });
+
+      if (hasToAddNegative) {
+        features.push({
+          ...feature,
+          geometry: {
+            ...feature.geometry,
+            coordinates: feature.geometry.coordinates.reduce((acc, coord) => {
+              if (coord[0] >= 0) {
+                acc.push([coord[0] - 360, coord[1]]);
+              }
+              return acc;
+            }, []),
+          },
+        });
+      }
+      if (hasToAddPositive) {
+        features.push({
+          ...feature,
+          geometry: {
+            ...feature.geometry,
+            coordinates: feature.geometry.coordinates.reduce((acc, coord) => {
+              if (coord[0] < 0) {
+                acc.push([coord[0] + 360, coord[1]]);
+              }
+              return acc;
+            }, []),
+          },
+        });
+      }
+    }
+    features.push(feature);
+  });
+  return {
+    ...originalFeatureCollection,
+    features,
+  };
+};
+
+const geojsonToGraph = (networkGeoJSON) => {
+  // console.log("Receiving network,", networkGeoJSON);
   const { features } = networkGeoJSON;
   const graph = createGraph();
   const coords = [];
@@ -62,7 +128,7 @@ const geojsonToPath = (networkGeoJSON) => {
           );
           graph.addLink(
             getLocationHash(feature.geometry.coordinates[index]),
-            getLocationHash(feature.geometry.coordinates[index - 1]),
+            getLocationHash(feature.geometry.coordinates[index - 1])
           );
         }
       });
@@ -84,4 +150,25 @@ const geojsonToPath = (networkGeoJSON) => {
   };
 };
 
-export { processMeridianCut, geojsonToPath, getNearestNeighbour };
+const aStarOption = {
+  distance(fromNode, toNode) {
+    return distance(
+      point([fromNode.data.x, fromNode.data.y]),
+      point([toNode.data.x, toNode.data.y])
+    );
+  },
+  heuristic(fromNode, toNode) {
+    return distance(
+      point([fromNode.data.x, fromNode.data.y]),
+      point([toNode.data.x, toNode.data.y])
+    );
+  },
+};
+
+export {
+  processMeridianCut,
+  geojsonToGraph,
+  getNearestNeighbour,
+  modifyGeoJSON,
+  aStarOption,
+};
