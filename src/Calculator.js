@@ -5,6 +5,7 @@ import axios from "axios";
 import localforage from "localforage";
 import PathFinder from "./geojson-path-finder";
 import Map from "./Map";
+import { processMeridianCut } from "./utils/Misc";
 
 const initialWaypoints = {
   example1: [
@@ -39,6 +40,32 @@ const initialWaypoints = {
       latitude: 11.115138670698153,
     },
     { longitude: 151.22303590060116, latitude: -33.85865171521903 },
+  ],
+  example4: [
+    {
+      longitude: 162.47096813346838,
+      latitude: 56.18343589352472,
+    },
+    {
+      longitude: -134.91796826786023,
+      latitude: 58.432208961053355,
+    },
+  ],
+  example5: [
+    {
+      longitude: 23.887878124569756,
+      latitude: 57.02899934855821,
+    },
+    {
+      longitude: 22.912279265021315,
+      latitude: 40.60778596498325,
+    },
+    {
+      longitude: -74.36706778626323,
+      latitude: 11.115138670698153,
+    },
+    { longitude: 151.22303590060116, latitude: -33.85865171521903 },
+    { longitude: 100.56384058167184, latitude: 13.698188331830577 },
   ],
 };
 
@@ -126,15 +153,44 @@ const Finder = () => {
           const pathFinder = new PathFinder(network, {
             precision,
           });
-          const point1 = turf([waypoint.longitude, waypoint.latitude]);
-          const point2 = turf([
+          const _coor1 = [waypoint.longitude, waypoint.latitude];
+          const _coor2 = [
             waypoints[index + 1].longitude,
             waypoints[index + 1].latitude,
-          ]);
+          ];
+          // Check coordinates if the distance between the 2 longitudes are greater than 180.
+          const [coor1, coor2, changedIndex] = processMeridianCut(
+            _coor1,
+            _coor2
+          );
+
+          const point1 = turf(coor1);
+          const point2 = turf(coor2);
           const result = pathFinder.findPath(point1, point2);
+
           if (result) {
             acc.push([waypoints[index].longitude, waypoints[index].latitude]);
             acc.push(result.path);
+
+            // In the situation where the routing crosses the meridian, we need to carry out 2 path calculations istead of 1.
+            // TODO: tidy this up
+            if (changedIndex !== undefined) {
+              let lastCalculatedCoordinate =
+                result.path[result.path.length - 1];
+              let finalDestination = _coor2;
+              if (changedIndex === 0) {
+                lastCalculatedCoordinate = result.path[0];
+                finalDestination = _coor1;
+              }
+              const modifiedStartCoordinate = [
+                lastCalculatedCoordinate[0] + 360,
+                lastCalculatedCoordinate[1],
+              ];
+              const point1 = turf(modifiedStartCoordinate);
+              const point2 = turf(finalDestination);
+              const secondResult = pathFinder.findPath(point1, point2);
+              acc.push(secondResult.path);
+            }
           }
         }
         return acc;
@@ -192,7 +248,7 @@ const Finder = () => {
             <Formik
               initialValues={{
                 precision: 0.0001,
-                waypoints: initialWaypoints.example3,
+                waypoints: initialWaypoints.example5,
               }}
               onSubmit={handleSubmit}
             >

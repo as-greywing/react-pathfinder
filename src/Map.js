@@ -4,7 +4,7 @@ import mapboxgl, { LngLatBounds } from "mapbox-gl";
 
 // Style Imports
 import "mapbox-gl/dist/mapbox-gl.css";
-import generateFeatureCollection from "./GenerateFeature";
+import generateFeatureCollection from "./utils/GenerateFeature";
 
 const accessToken =
   "pk.eyJ1IjoiZ3JleXdpbmctb3BlcmF0aW9ucyIsImEiOiJja3ZjN2RiaHgwOTgzMndudTRuMXRna25hIn0.98LQ0sAmH9ccltQv3bs4Pw";
