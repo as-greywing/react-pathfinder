@@ -33,6 +33,8 @@ const Finder = () => {
   const [endTime, setEndTime] = useState(0);
   const [endTimeGw, setEndTimeGw] = useState(0);
   const [endTimeNg, setEndTimeNg] = useState(0);
+  const [pathFinder, setPathFinder] = useState(null);
+
 
   /**
    * Fetch the network json from the endpoint, if not from indexedDB
@@ -55,6 +57,9 @@ const Finder = () => {
   useEffect(() => {
     if (!network) return;
     setGraph(geojsonToPath(network));
+    setPathFinder(new PathFinder(network, {
+      precision: 0.0001,
+    }));
   }, [network]);
 
   /**
@@ -156,61 +161,66 @@ const Finder = () => {
 
   const getPath = async (waypoints, precision) => {
     return new Promise((res) => {
-      const paths = waypoints.reduce((acc, waypoint, index) => {
-        if (index + 1 < waypoints.length) {
-          const pathFinder = new PathFinder(network, {
-            precision,
-          });
-          const _coor1 = [waypoint.longitude, waypoint.latitude];
-          const _coor2 = [
-            waypoints[index + 1].longitude,
-            waypoints[index + 1].latitude,
-          ];
-          // Check coordinates if the distance between the 2 longitudes are greater than 180.
-          const [coor1, coor2, changedIndex] = processMeridianCut(
-            _coor1,
-            _coor2
-          );
+      if(pathFinder) {
+        const paths = waypoints.reduce((acc, waypoint, index) => {
+          if (index + 1 < waypoints.length) {
+            console.time("Prepping index "+index);
+            const _coor1 = [waypoint.longitude, waypoint.latitude];
+            const _coor2 = [
+              waypoints[index + 1].longitude,
+              waypoints[index + 1].latitude,
+            ];
+            // Check coordinates if the distance between the 2 longitudes are greater than 180.
+            const [coor1, coor2, changedIndex] = processMeridianCut(
+              _coor1,
+              _coor2
+            );
 
-          const point1 = point(coor1);
-          const point2 = point(coor2);
-          const result = pathFinder.findPath(point1, point2);
+            const point1 = point(coor1);
+            const point2 = point(coor2);
+            console.timeEnd("Prepping index "+index);
+            console.time("Pathfinding for index "+index);
+            const result = pathFinder.findPath(point1, point2);
+            console.timeEnd("Pathfinding for index "+index);
 
-          if (result) {
-            acc.push([waypoints[index].longitude, waypoints[index].latitude]);
-            acc.push(result.path);
+            console.time("Processing resut for index "+index);
+            if (result) {
+              acc.push([waypoints[index].longitude, waypoints[index].latitude]);
+              acc.push(result.path);
 
-            // In the situation where the routing crosses the meridian, we need to carry out 2 path calculations istead of 1.
-            // TODO: tidy this up
-            if (changedIndex !== undefined) {
-              let lastCalculatedCoordinate =
-                result.path[result.path.length - 1];
-              let finalDestination = _coor2;
-              if (changedIndex === 0) {
-                lastCalculatedCoordinate = result.path[0];
-                finalDestination = _coor1;
+              // In the situation where the routing crosses the meridian, we need to carry out 2 path calculations istead of 1.
+              // TODO: tidy this up
+              if (changedIndex !== undefined) {
+                let lastCalculatedCoordinate =
+                  result.path[result.path.length - 1];
+                let finalDestination = _coor2;
+                if (changedIndex === 0) {
+                  lastCalculatedCoordinate = result.path[0];
+                  finalDestination = _coor1;
+                }
+                const modifiedStartCoordinate = [
+                  lastCalculatedCoordinate[0] + 360,
+                  lastCalculatedCoordinate[1],
+                ];
+                const point1 = point(modifiedStartCoordinate);
+                const point2 = point(finalDestination);
+                const secondResult = pathFinder.findPath(point1, point2);
+                acc.push(secondResult.path);
               }
-              const modifiedStartCoordinate = [
-                lastCalculatedCoordinate[0] + 360,
-                lastCalculatedCoordinate[1],
-              ];
-              const point1 = point(modifiedStartCoordinate);
-              const point2 = point(finalDestination);
-              const secondResult = pathFinder.findPath(point1, point2);
-              acc.push(secondResult.path);
             }
+            console.timeEnd("Processing resut for index "+index);
           }
+          return acc;
+        }, []);
+        if (paths.length) {
+          paths.push([
+            waypoints[waypoints.length - 1].longitude,
+            waypoints[waypoints.length - 1].latitude,
+          ]);
+          res(paths);
+        } else {
+          res([]);
         }
-        return acc;
-      }, []);
-      if (paths.length) {
-        paths.push([
-          waypoints[waypoints.length - 1].longitude,
-          waypoints[waypoints.length - 1].latitude,
-        ]);
-        res(paths);
-      } else {
-        res([]);
       }
     }).then((result) => {
       if (result.length) {
@@ -249,6 +259,10 @@ const Finder = () => {
     return Promise.resolve();
   };
 
+  const handleMapClick = (e) => {
+    console.log("Clicked - ",e.lngLat);
+  }
+
   return (
     <div className="d-flex h-100">
       <div className="map w-100 h-100">
@@ -257,6 +271,7 @@ const Finder = () => {
           paths={result}
           gwPaths={gwResult}
           ngPaths={ngResult}
+          onClick={handleMapClick}
         />
       </div>
       <div

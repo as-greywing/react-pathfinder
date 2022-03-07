@@ -50,7 +50,7 @@ const generateGeoJSON = (paths) => {
   });
 };
 
-export default function FlotillaMap({ paths, gwPaths, ngPaths, network: networkMap }) {
+export default function FlotillaMap({ paths, gwPaths, ngPaths, onClick, network: networkMap }) {
   const mapContainer = useRef(null);
   const mapRef = useRef();
 
@@ -62,6 +62,23 @@ export default function FlotillaMap({ paths, gwPaths, ngPaths, network: networkM
   useEffect(() => {
     const map = getMap();
     if (map && mapLoaded) {
+      map.map.on('click', (e) => {
+        onClick(e);
+        // {
+        //     lngLat: {
+        //         lng: 40.203,
+        //         lat: -74.451
+        //     },
+        //     originalEvent: {...},
+        //     point: {
+        //         x: 266,
+        //         y: 464
+        //     },
+        //      target: {...},
+        //      type: "click"
+        // }
+        });
+
       if (map.map.getSource("network")) {
         map.map.getSource("network").setData(networkMap);
       } else {

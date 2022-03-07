@@ -60,6 +60,10 @@ const geojsonToPath = (networkGeoJSON) => {
             getLocationHash(feature.geometry.coordinates[index - 1]),
             getLocationHash(feature.geometry.coordinates[index])
           );
+          graph.addLink(
+            getLocationHash(feature.geometry.coordinates[index]),
+            getLocationHash(feature.geometry.coordinates[index - 1]),
+          );
         }
       });
     }
