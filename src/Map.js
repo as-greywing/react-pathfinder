@@ -42,6 +42,8 @@ function generateFlotillaMap({ map }) {
 
 const generateGeoJSON = (paths) => {
   return generateFeatureCollection({
+    type: "Feature",
+    properties: {},
     geometry: {
       type: "MultiLineString",
       coordinates: paths,
@@ -95,18 +97,16 @@ export default function FlotillaMap({ paths, gwPaths, network: networkMap }) {
 
   // render geojson path result
   useEffect(() => {
+    
     const map = getMap();
     if (map && mapLoaded) {
       if (paths.length) {
-        // const newData = generateGeoJSON(paths);
-        // console.log("adding Line", newData);
-
         if (map.map.getSource("paths")) {
-          map.map.getSource("paths").setData(generateGeoJSON([paths]));
+          map.map.getSource("paths").setData(generateGeoJSON(paths));
         } else {
           map.map.addSource("paths", {
             type: "geojson",
-            data: generateGeoJSON([paths]),
+            data: generateGeoJSON(paths),
           });
         }
         if (map.map.getSource("paths")) {

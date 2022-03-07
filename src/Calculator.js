@@ -65,12 +65,13 @@ const Finder = () => {
 
   /**
    * Fetch the network json from the endpoint, if not from indexedDB
+   * Currently making use of the 20km resolution network
    */
   useEffect(() => {
     async function fetch() {
       const hasNetwork = await localforage.getItem("network");
       if (!hasNetwork) {
-        const { data } = await axios("http://localhost:3123/network");
+        const { data } = await axios("http://localhost:3123/network/20");
         localforage.setItem("network", data);
         setNetwork(data);
       } else {
@@ -96,7 +97,7 @@ const Finder = () => {
               }`
             );
             if (data.status === "ok") {
-              return Promise.resolve(...data.geom.coordinates);
+              return Promise.resolve(data.geom.coordinates);
             }
             return Promise.resolve(null);
           }
@@ -106,11 +107,7 @@ const Finder = () => {
 
       const paths = promises.reduce((acc, path, index) => {
         if (path) {
-          // For some reason, i need to flip the array around for the requests beyond the first.
-          if (index > 0) {
-            path.reverse();
-          }
-          acc.push(path);
+          acc.push(...path);
         }
         return acc;
       }, []);
@@ -137,7 +134,7 @@ const Finder = () => {
           const result = pathFinder.findPath(point1, point2);
           if (result) {
             acc.push([waypoints[index].longitude, waypoints[index].latitude]);
-            acc.push(...result.path);
+            acc.push(result.path);
           }
         }
         return acc;

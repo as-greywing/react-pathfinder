@@ -24,16 +24,9 @@ function splitCoords(v) {
   }
 }
 
-export default function generateFeatureCollection(args) {
-  const { geometry } = args;
+export default function generateFeatureCollection(feature) {
   return {
     type: "FeatureCollection",
-    features: [
-      {
-        type: "Feature",
-        properties: {},
-        geometry: splitCoords(geometry),
-      },
-    ],
+    features: [splitCoords(feature)],
   };
 }
