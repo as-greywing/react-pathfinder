@@ -318,7 +318,6 @@ const Finder = () => {
     return Promise.resolve();
   };
 
-
   return (
     <Formik
       initialValues={{
@@ -456,11 +455,13 @@ const Finder = () => {
                   />
                   <div className="d-flex align-items-center justify-content-center">
                     <label className="label me-3">Precision</label>
+                    {/* This is currently disabled as it causes a network graph rebuild immediately on change */}
                     <input
                       className="form-control"
                       type="number"
                       value={precision}
                       onChange={(e) => setPrecision(e.target.value)}
+                      disabled
                     />
                   </div>
                   <div className="d-flex justify-content-between align-items-start mt-3">
