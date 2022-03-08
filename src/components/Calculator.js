@@ -1,9 +1,10 @@
 import { Form, Formik } from "formik";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import axios from "axios";
 import localforage from "localforage";
 import path from "ngraph.path";
 import { point } from "turf";
+import * as Yup from "yup";
 
 import Map from "./Map";
 import InputField from "./InputField";
@@ -18,27 +19,55 @@ import {
 } from "../utils/Misc";
 import { initialWaypoints } from "../constants";
 
+const HIDE_RESULTS = true;
+
+const BADGE_COLORS = {
+  "not-started": "primary",
+  calculated: "success",
+  "No result..": "danger",
+  "not calculating": "info",
+};
+
+const CalculationToggler = ({ name, value, onChange }) => (
+  <div className="form-check">
+    <input
+      className="me-3 form-check-input"
+      type="checkbox"
+      name={name}
+      checked={value}
+      onChange={() => onChange((e) => !e)}
+    />
+    <label
+      className="form-check-label"
+      htmlFor={name}
+      onClick={() => onChange((e) => !e)}
+    >
+      Check to enable calculation
+    </label>
+  </div>
+);
+
 const Finder = () => {
   const [network, setNetwork] = useState(null);
   const [negativeExtNetwork, setNegativeExtNetwork] = useState(null);
 
   const [result, setResult] = useState([]);
   const [resultStatus, setResultStatus] = useState("not-started");
+  const [useGPFRoute, setUseGPFRoute] = useState(true);
 
   const [gwResult, setGwResult] = useState([]);
   const [gwResultStatus, setGwResultStatus] = useState("not-started");
   const [useGwRoute, setUseGwRoute] = useState(false);
 
-  const [graph, setGraph] = useState(null);
-  const [negativeGraph, setNegativeGraph] = useState(null);
-
   const [ngResult, setNgResult] = useState([]);
   const [ngResultStatus, setNgResultStatus] = useState("not-started");
+  const [useNgRoute, setUseNgRoute] = useState(false);
 
   const [endTime, setEndTime] = useState(0);
   const [endTimeGw, setEndTimeGw] = useState(0);
   const [endTimeNg, setEndTimeNg] = useState(0);
-  const [pathFinder, setPathFinder] = useState(null);
+
+  const [precision, setPrecision] = useState(0.0001);
 
   /**
    * Fetch the network json from the endpoint, if not from indexedDB
@@ -59,18 +88,20 @@ const Finder = () => {
     fetch();
   }, []);
 
-  useEffect(() => {
-    if (!network) return;
-    setGraph(geojsonToGraph(network));
-    if (negativeExtNetwork) {
-      setNegativeGraph(geojsonToGraph(negativeExtNetwork));
-    }
-    setPathFinder(
-      new PathFinder(network, {
-        precision: 0.0001,
-      })
-    );
-  }, [network, negativeExtNetwork]);
+  const graph = useMemo(() => {
+    if (!network) return null;
+    return geojsonToGraph(network);
+  }, [network]);
+
+  const negativeGraph = useMemo(() => {
+    if (!negativeExtNetwork) return null;
+    return geojsonToGraph(negativeExtNetwork);
+  }, [negativeExtNetwork]);
+
+  const pathFinder = useMemo(() => {
+    if (!network) return null;
+    return new PathFinder(network, { precision });
+  }, [network, precision]);
 
   /**
    * Calculate the path using ngraph
@@ -140,7 +171,6 @@ const Finder = () => {
         return acc;
       }, []);
 
-      console.log("Finally", paths);
       if (paths.length) {
         setNgResult(paths);
         setNgResultStatus("calculated");
@@ -189,12 +219,11 @@ const Finder = () => {
     }
   };
 
-  const getPath = async (waypoints, precision) => {
+  const getPath = async (waypoints) => {
     return new Promise((res) => {
       if (pathFinder) {
         const paths = waypoints.reduce((acc, waypoint, index) => {
           if (index + 1 < waypoints.length) {
-            console.time("Prepping index " + index);
             const _coor1 = [waypoint.longitude, waypoint.latitude];
             const _coor2 = [
               waypoints[index + 1].longitude,
@@ -208,14 +237,9 @@ const Finder = () => {
 
             const point1 = point(coor1);
             const point2 = point(coor2);
-            console.timeEnd("Prepping index " + index);
-            console.time("Pathfinding for index " + index);
             const result = pathFinder.findPath(point1, point2);
-            console.timeEnd("Pathfinding for index " + index);
 
-            console.time("Processing resut for index " + index);
             if (result) {
-              // acc.push([waypoints[index].longitude, waypoints[index].latitude]);
               acc.push(result.path);
 
               // In the situation where the routing crosses the meridian, we need to carry out 2 path calculations istead of 1.
@@ -238,15 +262,10 @@ const Finder = () => {
                 acc.push(secondResult.path);
               }
             }
-            console.timeEnd("Processing resut for index " + index);
           }
           return acc;
         }, []);
         if (paths.length) {
-          // paths.push([
-          //   waypoints[waypoints.length - 1].longitude,
-          //   waypoints[waypoints.length - 1].latitude,
-          // ]);
           res(paths);
         } else {
           res([]);
@@ -254,7 +273,6 @@ const Finder = () => {
       }
     }).then((result) => {
       if (result.length) {
-        console.log("Finally", result);
         setResult(result);
         setResultStatus("calculated");
       } else {
@@ -265,7 +283,7 @@ const Finder = () => {
     });
   };
 
-  const handleSubmit = async ({ waypoints, precision }) => {
+  const handleSubmit = async ({ waypoints }) => {
     if (useGwRoute) {
       setGwResultStatus("calculating");
       const startTimeGw = performance.now();
@@ -273,83 +291,105 @@ const Finder = () => {
       const endTimeGw = performance.now();
       setEndTimeGw(Math.round(endTimeGw - startTimeGw));
     } else {
+      setGwResult([]);
       setGwResultStatus("not calculating");
     }
-    const startTime = performance.now();
-    setResultStatus("calculating");
-    await getPath(waypoints, precision);
-    const endTime = performance.now();
-    setEndTime(Math.round(endTime - startTime, 0));
-
-    const startTimeNg = performance.now();
-    setNgResultStatus("calculating");
-    getNGPath(waypoints);
-    const endTimeNg = performance.now();
-    setEndTimeNg(Math.round(endTimeNg - startTimeNg, 0));
+    if (useGPFRoute) {
+      setResultStatus("calculating");
+      const startTime = performance.now();
+      await getPath(waypoints);
+      const endTime = performance.now();
+      setEndTime(Math.round(endTime - startTime, 0));
+    } else {
+      setResult([]);
+      setResultStatus("not calculating");
+    }
+    if (useNgRoute) {
+      setNgResultStatus("calculating");
+      const startTimeNg = performance.now();
+      getNGPath(waypoints);
+      const endTimeNg = performance.now();
+      setEndTimeNg(Math.round(endTimeNg - startTimeNg, 0));
+    } else {
+      setNgResult([]);
+      setNgResultStatus("not calculating");
+    }
 
     return Promise.resolve();
   };
 
-  const handleMapClick = (e) => {
-    console.log("Clicked - ", e.lngLat);
-  };
 
   return (
-    <div className="d-flex h-100">
-      <div className="map w-100 h-100">
-        <Map
-          network={network}
-          paths={result}
-          gwPaths={gwResult}
-          ngPaths={ngResult}
-          onClick={handleMapClick}
-        />
-      </div>
-      <div
-        className="p-3 d-flex gap-2 flex-column h-100"
-        style={{ overflow: "scroll" }}
-      >
-        <div className="card">
-          <div className="card-body">
-            <Formik
-              initialValues={{
-                precision: 0.0001,
-                waypoints: initialWaypoints.example2,
-              }}
-              onSubmit={handleSubmit}
+    <Formik
+      initialValues={{
+        waypoints: initialWaypoints.example2,
+      }}
+      validationSchema={Yup.object({
+        waypoints: Yup.array()
+          .of(
+            Yup.object().shape({
+              latitude: Yup.number().required(),
+              longitude: Yup.number().required(),
+            })
+          )
+          .min(2),
+      })}
+      onSubmit={handleSubmit}
+    >
+      {({ values, setFieldValue, errors, isSubmitting }) => {
+        const handleAdd = (index) => {
+          return () => {
+            const updated = [
+              ...values.waypoints.slice(0, index + 1),
+              { longitude: "", latitude: "" },
+              ...values.waypoints.slice(index + 1),
+            ];
+            setFieldValue("waypoints", updated);
+          };
+        };
+        const handleRemove = (index) => {
+          return () => {
+            const updated = [
+              ...values.waypoints.slice(0, index),
+              ...values.waypoints.slice(index + 1),
+            ];
+            setFieldValue("waypoints", updated);
+          };
+        };
+        return (
+          <div className="d-flex h-100">
+            <div className="map w-100 h-100">
+              <Map
+                network={network}
+                paths={result}
+                gwPaths={gwResult}
+                ngPaths={ngResult}
+              />
+            </div>
+            <div
+              className="p-3 d-flex gap-2 flex-column h-100"
+              style={{ overflow: "scroll" }}
             >
-              {({ values, setFieldValue, isSubmitting }) => {
-                const handleAdd = (index) => {
-                  return () => {
-                    const updated = [
-                      ...values.waypoints.slice(0, index + 1),
-                      { longitude: "", latitude: "" },
-                      ...values.waypoints.slice(index + 1),
-                    ];
-                    setFieldValue("waypoints", updated);
-                  };
-                };
-                const handleRemove = (index) => {
-                  return () => {
-                    const updated = [
-                      ...values.waypoints.slice(0, index),
-                      ...values.waypoints.slice(index + 1),
-                    ];
-                    setFieldValue("waypoints", updated);
-                  };
-                };
-                return (
+              <h2>Inputs</h2>
+              <div className="card">
+                <div className="card-body">
                   <Form>
-                    <label className="label">Precision</label>
-                    <InputField
-                      className="form-control mb-3"
-                      name="precision"
-                    />
                     <label className="label">Waypoints</label>
+                    <p className="text-muted">
+                      Include at least 2 waypoints.
+                      <br />
+                      (longitude, latitude)
+                    </p>
                     {values.waypoints.map((_, index) => (
                       <div className="d-flex gap-2 mb-3" key={index}>
-                        <InputField name={`waypoints.${index}.longitude`} />
-                        <InputField name={`waypoints.${index}.latitude`} />
+                        <InputField
+                          disableError
+                          name={`waypoints.${index}.longitude`}
+                        />
+                        <InputField
+                          disableError
+                          name={`waypoints.${index}.latitude`}
+                        />
                         <button
                           className="btn btn-md btn-primary"
                           type="button"
@@ -367,6 +407,11 @@ const Finder = () => {
                         </button>
                       </div>
                     ))}
+                    {errors.waypoints && (
+                      <p className="text-danger">
+                        {JSON.stringify(errors.waypoints)}
+                      </p>
+                    )}
                     <button
                       type="submit"
                       className="btn btn-primary"
@@ -374,49 +419,95 @@ const Finder = () => {
                     >
                       {isSubmitting ? "Loading" : "Calculate "}
                     </button>
+                    <p className="mt-3 mb-0">
+                      PRO TIP: click anywhere on the map to add a new waypoint.
+                    </p>
                   </Form>
-                );
-              }}
-            </Formik>
+                </div>
+              </div>
+              <h2>Calculation Options</h2>
+              <div className="card">
+                <div className="card-body">
+                  <p className="h3" style={{ color: "#24ed6a" }}>
+                    Modified Sea Route
+                  </p>
+                  <CalculationToggler
+                    name="useGw"
+                    value={useGwRoute}
+                    onChange={setUseGwRoute}
+                  />
+                  <div className="d-flex justify-content-between align-items-start mt-3">
+                    <div className={`badge bg-${BADGE_COLORS[gwResultStatus]}`}>
+                      {gwResultStatus}
+                    </div>
+                    <p>{gwResultStatus === "calculated" && `${endTimeGw}ms`}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="card">
+                <div className="card-body">
+                  <p className="h3" style={{ color: "#2c1ce6" }}>
+                    Geojson Path Finder
+                  </p>
+                  <CalculationToggler
+                    name="useGPF"
+                    value={useGPFRoute}
+                    onChange={setUseGPFRoute}
+                  />
+                  <div className="d-flex align-items-center justify-content-center">
+                    <label className="label me-3">Precision</label>
+                    <input
+                      className="form-control"
+                      type="number"
+                      value={precision}
+                      onChange={(e) => setPrecision(e.target.value)}
+                    />
+                  </div>
+                  <div className="d-flex justify-content-between align-items-start mt-3">
+                    <div className={`badge bg-${BADGE_COLORS[resultStatus]}`}>
+                      {resultStatus}
+                    </div>
+                    <p>{resultStatus === "calculated" && `${endTime}ms`}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="card">
+                <div className="card-body">
+                  <p className="h3" style={{ color: "#e8335a" }}>
+                    NGraph
+                  </p>
+                  <CalculationToggler
+                    name="useNg"
+                    value={useNgRoute}
+                    onChange={setUseNgRoute}
+                  />
+                  <div className="d-flex justify-content-between align-items-start mt-3">
+                    <div
+                      className={`badge bg-${BADGE_COLORS[ngResultStatus]} `}
+                    >
+                      {ngResultStatus}
+                    </div>
+                    <p>{ngResultStatus === "calculated" && `${endTimeNg}ms`}</p>
+                  </div>
+                </div>
+              </div>
+              {!HIDE_RESULTS && (
+                <div className="card">
+                  <div className="card-body">
+                    {!result && <p>No results</p>}
+                    {result && (
+                      <pre className="mt-3 bg-dark text-white p-3 small">
+                        {JSON.stringify({ result }, null, 2)}
+                      </pre>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
-        </div>
-        <div className="card">
-          <div className="card-body">
-            <p style={{ color: "#24ed6a" }}>
-              Modified Sea Route
-              <input
-                className="ms-3"
-                type="checkbox"
-                name="useGw"
-                value={useGwRoute}
-                onChange={() => setUseGwRoute((e) => !e)}
-              />
-            </p>
-            <p>
-              {gwResultStatus}{" "}
-              {gwResultStatus === "calculated" && `${endTimeGw}ms`}
-            </p>
-            <p style={{ color: "#f2eaa0" }}>Geojson Path Finder</p>
-            {resultStatus} {resultStatus === "calculated" && `${endTime}ms`}
-            <p></p>
-            <p style={{ color: "#e8335a" }}>NGraph</p>
-            {ngResultStatus}{" "}
-            {ngResultStatus === "calculated" && `${endTimeNg}ms`}
-            <p></p>
-          </div>
-        </div>
-        <div className="card">
-          <div className="card-body">
-            {!result && <p>No results</p>}
-            {result && (
-              <pre className="mt-3 bg-dark text-white p-3 small">
-                {JSON.stringify({ result }, null, 2)}
-              </pre>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
+        );
+      }}
+    </Formik>
   );
 };
 export default Finder;

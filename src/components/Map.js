@@ -1,10 +1,11 @@
-import React from "react";
+import React, { useCallback, useMemo } from "react";
 import { useEffect, useRef, useState } from "react";
 import mapboxgl, { LngLatBounds } from "mapbox-gl";
 
 // Style Imports
 import "mapbox-gl/dist/mapbox-gl.css";
 import generateFeatureCollection from "../utils/GenerateFeature";
+import { useField } from "formik";
 
 const accessToken = process.env.REACT_APP_MAP_ACCESS_TOKEN;
 
@@ -21,15 +22,9 @@ const FlotillaMapElement = (props) => {
 const MemoizedFlotillaMapElement = React.memo(FlotillaMapElement);
 
 function generateFlotillaMap({ map }) {
-  map.on("load", async () => {
-    const setPaths = (c) => {
-      if (c && c.dataType === "source" && c.sourceId === "route") {
-        map.off("sourcedata", setPaths);
-      }
-    };
-    map.on("sourcedata", setPaths);
-  });
-
+  // map.on("sourcedata", (e) => {
+  //   console.log(e);
+  // });
   return {
     map: map,
     remove: () => {
@@ -54,37 +49,93 @@ export default function FlotillaMap({
   paths,
   gwPaths,
   ngPaths,
-  onClick,
   network: networkMap,
 }) {
   const mapContainer = useRef(null);
   const mapRef = useRef();
+  const [field, , helpers] = useField("waypoints");
 
   const getMap = () => mapRef.current;
 
   const [mapLoaded, setMapLoaded] = useState(false);
 
+  const onMapClick = useCallback(
+    (e) => {
+      const newPoint = {
+        longitude: e.lngLat.lng,
+        latitude: e.lngLat.lat,
+      };
+      if (newPoint.longitude > 180) {
+        newPoint.longitude = newPoint.longitude - 360;
+      }
+      if (newPoint.longitude < -180) {
+        newPoint.longitude = newPoint.longitude + 360;
+      }
+      const updatedWaypoints = [...field.value, newPoint];
+      helpers.setValue(updatedWaypoints);
+    },
+    [field, helpers]
+  );
+
+  useEffect(() => {
+    const map = getMap();
+    if (mapLoaded && map) {
+      map.map.on("click", onMapClick);
+    }
+    return () => {
+      if (mapLoaded && map) {
+        map.map.off("click", onMapClick);
+      }
+    };
+  }, [mapLoaded, onMapClick]);
+
+  // This is still buggy..!
+  const waypointData = useMemo(() => {
+    return {
+      type: "FeatureCollection",
+      features: field.value.map((waypoint, index) => ({
+        type: "Feature",
+        id: [waypoint.longitude, waypoint.latitude].join(","),
+        properties: {
+          label: `waypoint-${index + 1}`,
+        },
+        geometry: {
+          type: "Point",
+          coordinates: [waypoint.longitude, waypoint.latitude],
+        },
+      })),
+    };
+  }, [field]);
+
+  // render waypoints
+  useEffect(() => {
+    const map = getMap();
+    if (mapLoaded && map) {
+      if (map.map.getSource("waypoints")) {
+        map.map.getSource("waypoints").setData(waypointData);
+      } else {
+        map.map.addSource("waypoints", {
+          type: "geojson",
+          data: waypointData,
+        });
+      }
+      if (!map.map.getLayer("waypoints")) {
+        map.map.addLayer({
+          id: "waypoints",
+          source: "waypoints",
+          type: "symbol",
+          layout: {
+            "text-field": ["get", "label"],
+          },
+        });
+      }
+    }
+  }, [waypointData, mapLoaded]);
+
   // render network map
   useEffect(() => {
     const map = getMap();
     if (map && mapLoaded) {
-      map.map.on("click", (e) => {
-        onClick(e);
-        // {
-        //     lngLat: {
-        //         lng: 40.203,
-        //         lat: -74.451
-        //     },
-        //     originalEvent: {...},
-        //     point: {
-        //         x: 266,
-        //         y: 464
-        //     },
-        //      target: {...},
-        //      type: "click"
-        // }
-      });
-
       if (map.map.getSource("network")) {
         map.map.getSource("network").setData(networkMap);
       } else {
@@ -93,10 +144,7 @@ export default function FlotillaMap({
           data: networkMap,
         });
       }
-      if (map.map.getSource("network")) {
-        if (map.map.getLayer("network")) {
-          map.map.removeLayer("network");
-        }
+      if (!map.map.getLayer("network")) {
         map.map.addLayer({
           id: "network",
           source: "network",
@@ -111,8 +159,6 @@ export default function FlotillaMap({
             "line-cap": "round",
           },
         });
-      } else {
-        console.log("no source");
       }
     }
   }, [mapLoaded, networkMap]);
@@ -130,16 +176,13 @@ export default function FlotillaMap({
             data: generateGeoJSON(paths),
           });
         }
-        if (map.map.getSource("paths")) {
-          if (map.map.getLayer("paths")) {
-            map.map.removeLayer("paths");
-          }
+        if (!map.map.getLayer("paths")) {
           map.map.addLayer({
             id: "paths",
             source: "paths",
             type: "line",
             paint: {
-              "line-color": "#f2eaa0",
+              "line-color": "#2c1ce6",
               "line-width": 4,
             },
             layout: {
@@ -147,12 +190,7 @@ export default function FlotillaMap({
               "line-cap": "round",
             },
           });
-        } else {
-          console.log("no source");
         }
-      } else {
-        if (map.map.getLayer("paths")) map.map.removeLayer("paths");
-        if (map.map.getSource("paths")) map.map.removeSource("paths");
       }
     }
   }, [paths, mapLoaded]);
@@ -170,10 +208,7 @@ export default function FlotillaMap({
             data: generateGeoJSON(gwPaths),
           });
         }
-        if (map.map.getSource("gwPaths")) {
-          if (map.map.getLayer("gwPaths")) {
-            map.map.removeLayer("gwPaths");
-          }
+        if (!map.map.getLayer("gwPaths")) {
           map.map.addLayer({
             id: "gwPaths",
             source: "gwPaths",
@@ -187,12 +222,7 @@ export default function FlotillaMap({
               "line-cap": "round",
             },
           });
-        } else {
-          console.log("no source");
         }
-      } else {
-        if (map.map.getSource("gwPaths")) map.map.removeSource("gwPaths");
-        if (map.map.getLayer("gwPaths")) map.map.removeLayer("gwPaths");
       }
     }
   }, [gwPaths, mapLoaded]);
@@ -210,10 +240,7 @@ export default function FlotillaMap({
             data: generateGeoJSON(ngPaths),
           });
         }
-        if (map.map.getSource("ngPaths")) {
-          if (map.map.getLayer("ngPaths")) {
-            map.map.removeLayer("ngPaths");
-          }
+        if (map.map.getLayer("ngPaths")) {
           map.map.addLayer({
             id: "ngPaths",
             source: "ngPaths",
@@ -227,12 +254,7 @@ export default function FlotillaMap({
               "line-cap": "round",
             },
           });
-        } else {
-          console.log("no source");
         }
-      } else {
-        if (map.map.getSource("ngPaths")) map.map.removeSource("ngPaths");
-        if (map.map.getLayer("ngPaths")) map.map.removeLayer("ngPaths");
       }
     }
   }, [ngPaths, mapLoaded]);
@@ -279,6 +301,7 @@ export default function FlotillaMap({
 
     return () => {
       if (mapRef.current) {
+        console.log("removing");
         mapRef.current.remove();
         mapRef.current = null;
       }
