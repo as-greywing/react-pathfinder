@@ -305,6 +305,7 @@ const Finder = () => {
       setResultStatus("not calculating");
     }
     if (useNgRoute) {
+      console.log("DOING@!")
       setNgResultStatus("calculating");
       const startTimeNg = performance.now();
       getNGPath(waypoints);

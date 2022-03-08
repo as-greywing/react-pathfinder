@@ -89,7 +89,6 @@ export default function FlotillaMap({
     };
   }, [mapLoaded, onMapClick]);
 
-  // This is still buggy..!
   const waypointData = useMemo(() => {
     return {
       type: "FeatureCollection",
@@ -167,30 +166,28 @@ export default function FlotillaMap({
   useEffect(() => {
     const map = getMap();
     if (map && mapLoaded) {
-      if (paths.length) {
-        if (map.map.getSource("paths")) {
-          map.map.getSource("paths").setData(generateGeoJSON(paths));
-        } else {
-          map.map.addSource("paths", {
-            type: "geojson",
-            data: generateGeoJSON(paths),
-          });
-        }
-        if (!map.map.getLayer("paths")) {
-          map.map.addLayer({
-            id: "paths",
-            source: "paths",
-            type: "line",
-            paint: {
-              "line-color": "#2c1ce6",
-              "line-width": 4,
-            },
-            layout: {
-              "line-join": "round",
-              "line-cap": "round",
-            },
-          });
-        }
+      if (map.map.getSource("paths")) {
+        map.map.getSource("paths").setData(generateGeoJSON(paths));
+      } else {
+        map.map.addSource("paths", {
+          type: "geojson",
+          data: generateGeoJSON(paths),
+        });
+      }
+      if (!map.map.getLayer("paths")) {
+        map.map.addLayer({
+          id: "paths",
+          source: "paths",
+          type: "line",
+          paint: {
+            "line-color": "#2c1ce6",
+            "line-width": 4,
+          },
+          layout: {
+            "line-join": "round",
+            "line-cap": "round",
+          },
+        });
       }
     }
   }, [paths, mapLoaded]);
@@ -199,30 +196,28 @@ export default function FlotillaMap({
   useEffect(() => {
     const map = getMap();
     if (map && mapLoaded) {
-      if (gwPaths.length) {
-        if (map.map.getSource("gwPaths")) {
-          map.map.getSource("gwPaths").setData(generateGeoJSON(gwPaths));
-        } else {
-          map.map.addSource("gwPaths", {
-            type: "geojson",
-            data: generateGeoJSON(gwPaths),
-          });
-        }
-        if (!map.map.getLayer("gwPaths")) {
-          map.map.addLayer({
-            id: "gwPaths",
-            source: "gwPaths",
-            type: "line",
-            paint: {
-              "line-color": "#24ed6a",
-              "line-width": 4,
-            },
-            layout: {
-              "line-join": "round",
-              "line-cap": "round",
-            },
-          });
-        }
+      if (map.map.getSource("gwPaths")) {
+        map.map.getSource("gwPaths").setData(generateGeoJSON(gwPaths));
+      } else {
+        map.map.addSource("gwPaths", {
+          type: "geojson",
+          data: generateGeoJSON(gwPaths),
+        });
+      }
+      if (!map.map.getLayer("gwPaths")) {
+        map.map.addLayer({
+          id: "gwPaths",
+          source: "gwPaths",
+          type: "line",
+          paint: {
+            "line-color": "#24ed6a",
+            "line-width": 4,
+          },
+          layout: {
+            "line-join": "round",
+            "line-cap": "round",
+          },
+        });
       }
     }
   }, [gwPaths, mapLoaded]);
@@ -231,30 +226,28 @@ export default function FlotillaMap({
   useEffect(() => {
     const map = getMap();
     if (map && mapLoaded) {
-      if (ngPaths.length) {
-        if (map.map.getSource("ngPaths")) {
-          map.map.getSource("ngPaths").setData(generateGeoJSON(ngPaths));
-        } else {
-          map.map.addSource("ngPaths", {
-            type: "geojson",
-            data: generateGeoJSON(ngPaths),
-          });
-        }
-        if (map.map.getLayer("ngPaths")) {
-          map.map.addLayer({
-            id: "ngPaths",
-            source: "ngPaths",
-            type: "line",
-            paint: {
-              "line-color": "#e8335a",
-              "line-width": 4,
-            },
-            layout: {
-              "line-join": "round",
-              "line-cap": "round",
-            },
-          });
-        }
+      if (map.map.getSource("ngPaths")) {
+        map.map.getSource("ngPaths").setData(generateGeoJSON(ngPaths));
+      } else {
+        map.map.addSource("ngPaths", {
+          type: "geojson",
+          data: generateGeoJSON(ngPaths),
+        });
+      }
+      if (!map.map.getLayer("ngPaths")) {
+        map.map.addLayer({
+          id: "ngPaths",
+          source: "ngPaths",
+          type: "line",
+          paint: {
+            "line-color": "#e8335a",
+            "line-width": 4,
+          },
+          layout: {
+            "line-join": "round",
+            "line-cap": "round",
+          },
+        });
       }
     }
   }, [ngPaths, mapLoaded]);
