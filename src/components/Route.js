@@ -1,31 +1,41 @@
-import React, { useMemo } from "react";
+import React, { useCallback, useEffect, useMemo } from "react";
 import Source from "../mapbox/source";
 import Layer from "../mapbox/layer";
-import { splitCoords } from "../utils/GenerateFeature";
-
-const generateMultiLineString = ({ path, name }) => ({
-  type: "FeatureCollection",
-  properties: {
-    name,
-  },
-  features: [
-    splitCoords({
-      type: "Feature",
-      properties: {},
-      geometry: {
-        type: "MultiLineString",
-        coordinates: path,
-      },
-    }),
-  ],
-});
+import { useMap } from "../mapbox/use-map";
+import { generateMultiLineString } from "../utils/Misc";
 
 const Route = ({ path, name, styles }) => {
+  const { current: map } = useMap();
   const data = useMemo(
     () => generateMultiLineString({ path, name }),
     [path, name]
   );
+
+  const handleMouseMove = useCallback(
+    (e) => {
+      map.getCanvas().style.cursor = "pointer";
+    },
+    [map]
+  );
+
+  const handleMouseLeave = useCallback(
+    (e) => {
+      map.getCanvas().style.cursor = "";
+    },
+    [map]
+  );
+
+  useEffect(() => {
+    map.on("mousemove", name, handleMouseMove);
+    map.on("mouseleave", name, handleMouseLeave);
+    return () => {
+      map.off("mousemove", name, handleMouseMove);
+      map.off("mouseleave", name, handleMouseLeave);
+    };
+  }, [map]);
+
   const { paint, ...otherStyles } = styles;
+
   const layerStyle = {
     id: name,
     type: "line",
@@ -41,6 +51,7 @@ const Route = ({ path, name, styles }) => {
     },
     ...otherStyles,
   };
+
   return (
     <Source id={name} type="geojson" data={data}>
       <Layer {...layerStyle} />
