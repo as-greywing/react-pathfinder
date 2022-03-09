@@ -217,40 +217,45 @@ const Finder = () => {
   /**
    * Calculate the path using grey-wing's modified searoute endpoint
    */
-  const getGwPath = async (waypoints) => {
-    try {
-      const promises = await Promise.all(
-        waypoints.map(async (waypoint, index) => {
-          if (index + 1 < waypoints.length) {
-            const { data } = await axios.get(
-              `http://localhost:3123/?res=5&suez=1&panama=1&nonIRTC=1&opos=${
-                waypoint.longitude
-              },${waypoint.latitude}&dpos=${waypoints[index + 1].longitude},${
-                waypoints[index + 1].latitude
-              }`
-            );
-            if (data.status === "ok") {
-              return Promise.resolve(data.geom.coordinates);
+  const getGwPath = useCallback(
+    async (waypoints) => {
+      try {
+        const promises = await Promise.all(
+          waypoints.map(async (waypoint, index) => {
+            if (index + 1 < waypoints.length) {
+              const { data } = await axios.get(
+                `http://localhost:3123/?res=5&suez=${useSuez ? 1 : 0}&panama=${
+                  usePanama ? 1 : 0
+                }&nonIRTC=${!nonIRTC ? 1 : 0}&opos=${waypoint.longitude},${
+                  waypoint.latitude
+                }&dpos=${waypoints[index + 1].longitude},${
+                  waypoints[index + 1].latitude
+                }`
+              );
+              if (data.status === "ok") {
+                return Promise.resolve(data.geom.coordinates);
+              }
+              return Promise.resolve(null);
             }
             return Promise.resolve(null);
-          }
-          return Promise.resolve(null);
-        })
-      );
+          })
+        );
 
-      const paths = promises.reduce((acc, path, index) => {
-        if (path) {
-          acc.push(...path);
-        }
-        return acc;
-      }, []);
-      setGwResult(paths);
-      setGwResultStatus("calculated");
-    } catch (error) {
-      console.log("error", error.message);
-      setGwResultStatus(error.message);
-    }
-  };
+        const paths = promises.reduce((acc, path, index) => {
+          if (path) {
+            acc.push(...path);
+          }
+          return acc;
+        }, []);
+        setGwResult(paths);
+        setGwResultStatus("calculated");
+      } catch (error) {
+        console.log("error", error.message);
+        setGwResultStatus(error.message);
+      }
+    },
+    [usePanama, useSuez, nonIRTC]
+  );
 
   const getPath = async (waypoints) => {
     return new Promise((res) => {
