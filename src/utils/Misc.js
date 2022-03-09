@@ -1,5 +1,6 @@
 import createGraph from "ngraph.graph";
 import { distance, point } from "turf";
+import { splitCoords } from "./GenerateFeature";
 
 /**
  * This function checks if there's an intersection between two coordinates between the meridian at -180 and 180 degree.
@@ -201,7 +202,25 @@ const aStarOption = (nonIRTC = false, useSuez = true, usePanama = true) => ({
   },
 });
 
+const generateMultiLineString = ({ path, name }) => ({
+  type: "FeatureCollection",
+  properties: {
+    name,
+  },
+  features: [
+    splitCoords({
+      type: "Feature",
+      properties: {},
+      geometry: {
+        type: "MultiLineString",
+        coordinates: path,
+      },
+    }),
+  ],
+});
+
 export {
+  generateMultiLineString,
   processMeridianCut,
   geojsonToGraph,
   getNearestNeighbour,
