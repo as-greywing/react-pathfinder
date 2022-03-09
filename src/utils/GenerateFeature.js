@@ -10,7 +10,7 @@ import splitGeoJSON from "geojson-antimeridian-cut";
  * @returns {Array}           remapped array of coords
  */
 
-function splitCoords(v) {
+export function splitCoords(v) {
   try {
     const res = splitGeoJSON(v);
     res.coordinates = res.coordinates.map((arr) =>

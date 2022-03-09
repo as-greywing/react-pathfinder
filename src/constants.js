@@ -68,4 +68,11 @@ const initialWaypoints = {
   ],
 };
 
-export { initialWaypoints };
+const BADGE_COLORS = {
+  "not-started": "primary",
+  calculated: "success",
+  "No result..": "danger",
+  "not calculating": "info",
+};
+
+export { initialWaypoints, BADGE_COLORS };
