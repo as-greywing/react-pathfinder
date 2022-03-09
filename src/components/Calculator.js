@@ -28,7 +28,12 @@ const BADGE_COLORS = {
   "not calculating": "info",
 };
 
-const CalculationToggler = ({ name, value, onChange }) => (
+const CalculationToggler = ({
+  name,
+  value,
+  onChange,
+  label = "Check to enable calculation",
+}) => (
   <div className="form-check">
     <input
       className="me-3 form-check-input"
@@ -42,7 +47,7 @@ const CalculationToggler = ({ name, value, onChange }) => (
       htmlFor={name}
       onClick={() => onChange((e) => !e)}
     >
-      Check to enable calculation
+      {label}
     </label>
   </div>
 );
@@ -69,6 +74,9 @@ const Finder = () => {
 
   const [precision, setPrecision] = useState(0.0001);
 
+  const [nonIRTC, setNonIRTC] = useState(false);
+  const [usePanama, setUsePanama] = useState(true);
+  const [useSuez, setUseSuez] = useState(true);
   /**
    * Fetch the network json from the endpoint, if not from indexedDB
    * Currently making use of the 20km resolution network
@@ -80,6 +88,7 @@ const Finder = () => {
         const { data } = await axios("http://localhost:3123/network/20");
         localforage.setItem("network", data);
         setNetwork(data);
+        setNegativeExtNetwork(modifyGeoJSON(data, false));
       } else {
         setNetwork(hasNetwork);
         setNegativeExtNetwork(modifyGeoJSON(hasNetwork, false));
@@ -100,8 +109,30 @@ const Finder = () => {
 
   const pathFinder = useMemo(() => {
     if (!network) return null;
-    return new PathFinder(network, { precision });
-  }, [network, precision]);
+    return new PathFinder(network, {
+      precision,
+      weightFn: (a, b, props) => {
+        if (nonIRTC) {
+          if (props.desc_ === "irtc") {
+            return Number.MAX_SAFE_INTEGER;
+          }
+        }
+        if (!useSuez) {
+          if (props.desc_ === "suez") {
+            return Number.MAX_SAFE_INTEGER;
+          }
+        }
+        if (!usePanama) {
+          if (props.desc_ === "panama") {
+            return Number.MAX_SAFE_INTEGER;
+          }
+        }
+        const dx = a[0] - b[0];
+        const dy = a[1] - b[1];
+        return Math.sqrt(dx * dx + dy * dy);
+      },
+    });
+  }, [network, precision, nonIRTC, useSuez, usePanama]);
 
   /**
    * Calculate the path using ngraph
@@ -110,8 +141,10 @@ const Finder = () => {
     (waypoints) => {
       if (!graph) return [];
       if (!negativeGraph) return [];
-      const aStarFunc = path.aStar(graph.graph, aStarOption);
-      const aStarFuncNegative = path.aStar(negativeGraph.graph, aStarOption);
+      const aStarOptions = aStarOption(nonIRTC, useSuez, usePanama);
+
+      const aStarFunc = path.aStar(graph.graph, aStarOptions);
+      const aStarFuncNegative = path.aStar(negativeGraph.graph, aStarOptions);
 
       const paths = waypoints.reduce((acc, waypoint, index) => {
         if (index + 1 < waypoints.length) {
@@ -178,7 +211,7 @@ const Finder = () => {
         setNgResultStatus("No result..");
       }
     },
-    [graph, negativeGraph]
+    [graph, negativeGraph, nonIRTC, usePanama, useSuez]
   );
 
   /**
@@ -321,7 +354,7 @@ const Finder = () => {
   return (
     <Formik
       initialValues={{
-        waypoints: initialWaypoints.example2,
+        waypoints: initialWaypoints.example5,
       }}
       validationSchema={Yup.object({
         waypoints: Yup.array()
@@ -490,6 +523,28 @@ const Finder = () => {
                     </div>
                     <p>{ngResultStatus === "calculated" && `${endTimeNg}ms`}</p>
                   </div>
+                </div>
+              </div>
+              <div className="card">
+                <div className="card-body">
+                  <CalculationToggler
+                    name="nonIRTC"
+                    value={!nonIRTC}
+                    onChange={setNonIRTC}
+                    label="Use IRTC"
+                  />
+                  <CalculationToggler
+                    name="usePanama"
+                    value={usePanama}
+                    onChange={setUsePanama}
+                    label="Panama"
+                  />
+                  <CalculationToggler
+                    name="useSuez"
+                    value={useSuez}
+                    onChange={setUseSuez}
+                    label="Suez"
+                  />
                 </div>
               </div>
               {!HIDE_RESULTS && (

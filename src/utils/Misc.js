@@ -45,8 +45,8 @@ const getNearestNeighbour = ([longO, latO], vertices) => {
 /**
  * This function cycles through the coordinates and checks if it should be shifted by 1 360 degree cycle.
  * If required, it will add a new feature with the new coordinates ontop of the existing feature.
- * @param {geojson} originalFeatureCollection 
- * @param {boolean} isPositive 
+ * @param {geojson} originalFeatureCollection
+ * @param {boolean} isPositive
  * @returns geojson
  */
 const modifyGeoJSON = (originalFeatureCollection, isPositive) => {
@@ -122,14 +122,31 @@ const geojsonToGraph = (networkGeoJSON) => {
         });
         // Create edges
         if (index > 0) {
-          graph.addLink(
-            getLocationHash(feature.geometry.coordinates[index - 1]),
-            getLocationHash(feature.geometry.coordinates[index])
-          );
-          graph.addLink(
-            getLocationHash(feature.geometry.coordinates[index]),
-            getLocationHash(feature.geometry.coordinates[index - 1])
-          );
+          if (feature.properties.desc_) {
+            graph.addLink(
+              getLocationHash(feature.geometry.coordinates[index - 1]),
+              getLocationHash(feature.geometry.coordinates[index]),
+              {
+                desc_: feature.properties.desc_,
+              }
+            );
+            graph.addLink(
+              getLocationHash(feature.geometry.coordinates[index]),
+              getLocationHash(feature.geometry.coordinates[index - 1]),
+              {
+                desc_: feature.properties.desc_,
+              }
+            );
+          } else {
+            graph.addLink(
+              getLocationHash(feature.geometry.coordinates[index - 1]),
+              getLocationHash(feature.geometry.coordinates[index])
+            );
+            graph.addLink(
+              getLocationHash(feature.geometry.coordinates[index]),
+              getLocationHash(feature.geometry.coordinates[index - 1])
+            );
+          }
         }
       });
     }
@@ -141,7 +158,11 @@ const geojsonToGraph = (networkGeoJSON) => {
   // Add coords (unique hashes) to graph
   uniqueHashes.forEach((hash) => {
     const coord = hash.split(",");
-    graph.addNode(hash, { x: coord[0], y: coord[1] });
+    if (coord[2]) {
+      graph.addNode(hash, { x: coord[0], y: coord[1], desc_: coord[2] });
+    } else {
+      graph.addNode(hash, { x: coord[0], y: coord[1] });
+    }
   });
 
   return {
@@ -150,8 +171,23 @@ const geojsonToGraph = (networkGeoJSON) => {
   };
 };
 
-const aStarOption = {
-  distance(fromNode, toNode) {
+const aStarOption = (nonIRTC = false, useSuez = true, usePanama = true) => ({
+  distance(fromNode, toNode, link) {
+    if (nonIRTC) {
+      if (link.data?.desc_ === "irtc") {
+        return Number.MAX_SAFE_INTEGER;
+      }
+    }
+    if (!useSuez) {
+      if (link.data?.desc_ === "suez") {
+        return Number.MAX_SAFE_INTEGER;
+      }
+    }
+    if (!usePanama) {
+      if (link.data?.desc_ === "panama") {
+        return Number.MAX_SAFE_INTEGER;
+      }
+    }
     return distance(
       point([fromNode.data.x, fromNode.data.y]),
       point([toNode.data.x, toNode.data.y])
@@ -163,7 +199,7 @@ const aStarOption = {
       point([toNode.data.x, toNode.data.y])
     );
   },
-};
+});
 
 export {
   processMeridianCut,
