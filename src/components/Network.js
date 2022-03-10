@@ -20,6 +20,7 @@ const Network = () => {
     isPreparing,
     setIsPreparing,
     networkRes,
+    showNetwork,
   } = useContext(CalculatorContext);
 
   const [refetch, setRefetch] = useState(false);
@@ -104,9 +105,11 @@ const Network = () => {
   };
   return (
     <>
-      <Source id="network" data={network} type="geojson">
-        <Layer {...layerStyles} />
-      </Source>
+      {showNetwork && (
+        <Source id="network" data={network} type="geojson">
+          <Layer {...layerStyles} />
+        </Source>
+      )}
       <button
         className={cx(
           "btn btn-outline-primary btn-sm",

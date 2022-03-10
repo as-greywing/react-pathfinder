@@ -4,9 +4,10 @@ export const CalculatorContext = createContext(null);
 
 export const CalculatorProvider = (props) => {
   const [isPreparing, setIsPreparing] = useState(true);
-  const [networkRes, setNetworkRes] = useState('20');
+  const [networkRes, setNetworkRes] = useState("20");
   const [network, setNetwork] = useState(null);
   const [negativeExtNetwork, setNegativeExtNetwork] = useState(null);
+  const [showNetwork, setShowNetwork] = useState(false);
 
   const [result, setResult] = useState([]);
   const [resultStatus, setResultStatus] = useState("not-started");
@@ -77,6 +78,8 @@ export const CalculatorProvider = (props) => {
         setIsPreparing,
         networkRes,
         setNetworkRes,
+        showNetwork,
+        setShowNetwork,
       }}
     >
       {props.children}

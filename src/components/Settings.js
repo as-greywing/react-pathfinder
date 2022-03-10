@@ -29,13 +29,23 @@ const Settings = () => {
     setUseSuez,
     networkRes,
     setNetworkRes,
+    showNetwork,
+    setShowNetwork,
   } = useContext(CalculatorContext);
 
   return (
     <div>
       <label className="label fw-bold">Settings</label>
       <div className="my-3">
-        <label>Network Resolution</label>
+        <label className="label d-flex justify-content-between">
+          <span className="fw-bold">Network Resolution</span>
+          <Checkbox
+            value={showNetwork}
+            onChange={setShowNetwork}
+            name="showNetwork"
+            label="show"
+          />
+        </label>
         <div className="d-flex gap-2">
           {NETWORK_RES.map((resolution) => (
             <Radio
