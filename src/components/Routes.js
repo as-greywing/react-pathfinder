@@ -15,7 +15,6 @@ const Routes = () => {
           styles: {
             paint: {
               "line-color": "#2c1ce6",
-              "line-width": 4,
             },
           },
         },
@@ -25,7 +24,6 @@ const Routes = () => {
           styles: {
             paint: {
               "line-color": "#24ed6a",
-              "line-width": 4,
             },
           },
         },
@@ -35,7 +33,6 @@ const Routes = () => {
           styles: {
             paint: {
               "line-color": "#e8335a",
-              "line-width": 4,
               "line-dasharray": [4, 3],
             },
           },
@@ -43,7 +40,7 @@ const Routes = () => {
       ].filter(Boolean),
     [result, gwResult, ngResult, useNgRoute, useGPFRoute, useGwRoute]
   );
-  return allRoutes.map((route, index) => <Route key={route.name} {...route} />);
+  return allRoutes.map((route) => <Route key={route.name} {...route} />);
 };
 
 export default Routes;

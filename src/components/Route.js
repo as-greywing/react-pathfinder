@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Source from "../mapbox/source";
 import Layer from "../mapbox/layer";
 import { useMap } from "../mapbox/use-map";
@@ -6,6 +6,7 @@ import { generateMultiLineString } from "../utils/Misc";
 
 const Route = ({ path, name, styles }) => {
   const { current: map } = useMap();
+  const [generatedId, setGeneratedId] = useState(null);
   const data = useMemo(
     () => generateMultiLineString({ path, name }),
     [path, name]
@@ -14,15 +15,39 @@ const Route = ({ path, name, styles }) => {
   const handleMouseMove = useCallback(
     (e) => {
       map.getCanvas().style.cursor = "pointer";
+      if (generatedId === undefined || generatedId === null) {
+        setGeneratedId(e.features[0].id);
+        map.setFeatureState(
+          {
+            source: name,
+            id: e.features[0].id,
+          },
+          {
+            hover: true,
+          }
+        );
+      }
     },
-    [map]
+    [map, generatedId]
   );
 
   const handleMouseLeave = useCallback(
     (e) => {
       map.getCanvas().style.cursor = "";
+      if (generatedId !== null && generatedId !== undefined) {
+        map.setFeatureState(
+          {
+            source: name,
+            id: generatedId,
+          },
+          {
+            hover: false,
+          }
+        );
+        setGeneratedId(null);
+      }
     },
-    [map]
+    [map, generatedId]
   );
 
   useEffect(() => {
@@ -32,17 +57,28 @@ const Route = ({ path, name, styles }) => {
       map.off("mousemove", name, handleMouseMove);
       map.off("mouseleave", name, handleMouseLeave);
     };
-  }, [map]);
+  }, [map, handleMouseLeave, handleMouseMove]);
 
   const { paint, ...otherStyles } = styles;
 
   const layerStyle = {
     id: name,
+    source: name,
     type: "line",
     paint: {
       "line-color": "#2c1ce6",
-      "line-width": 2,
-      "line-opacity": 0.5,
+      "line-width": [
+        "case",
+        ["boolean", ["feature-state", "hover"], false],
+        4,
+        2,
+      ],
+      "line-opacity": [
+        "case",
+        ["boolean", ["feature-state", "hover"], false],
+        1,
+        0.5,
+      ],
       ...paint,
     },
     layout: {
@@ -53,7 +89,7 @@ const Route = ({ path, name, styles }) => {
   };
 
   return (
-    <Source id={name} type="geojson" data={data}>
+    <Source id={name} type="geojson" data={data} generateId>
       <Layer {...layerStyle} />
     </Source>
   );
