@@ -28,6 +28,8 @@ export const CalculatorProvider = (props) => {
   const [usePanama, setUsePanama] = useState(true);
   const [useSuez, setUseSuez] = useState(true);
 
+  const [showWaypoints, setShowWaypoints] = useState(true);
+
   return (
     <CalculatorContext.Provider
       value={{
@@ -67,6 +69,8 @@ export const CalculatorProvider = (props) => {
         setUsePanama,
         useSuez,
         setUseSuez,
+        showWaypoints,
+        setShowWaypoints,
       }}
     >
       {props.children}

@@ -202,10 +202,11 @@ const aStarOption = (nonIRTC = false, useSuez = true, usePanama = true) => ({
   },
 });
 
-const generateMultiLineString = ({ path, name }) => ({
+const generateMultiLineString = ({ path, name, ...props }) => ({
   type: "FeatureCollection",
   properties: {
     name,
+    ...props,
   },
   features: [
     splitCoords({
@@ -219,8 +220,25 @@ const generateMultiLineString = ({ path, name }) => ({
   ],
 });
 
+const generatePointGeoJSON = ({ points, name, ...props }) => ({
+  type: "FeatureCollection",
+  properties: {
+    name,
+    ...props,
+  },
+  features: points.map(({ coord, ...pointProps }) => ({
+    type: "Feature",
+    properties: pointProps,
+    geometry: {
+      type: "Point",
+      coordinates: coord,
+    },
+  })),
+});
+
 export {
   generateMultiLineString,
+  generatePointGeoJSON,
   processMeridianCut,
   geojsonToGraph,
   getNearestNeighbour,

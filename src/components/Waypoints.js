@@ -18,6 +18,8 @@ import {
 } from "../utils/Misc";
 import { CalculatorContext } from "../context/CalculatorContext";
 import WaypointAdder from "./WaypointAdder";
+import WaypointMarkers from "./WaypointMarkers";
+import Checkbox from "./Checkbox";
 
 const Waypoints = () => {
   const {
@@ -344,6 +346,7 @@ const Waypoints = () => {
 
 const WaypointsForm = () => {
   const { setFieldValue, values, errors, isSubmitting } = useFormikContext();
+  const { showWaypoints, setShowWaypoints } = useContext(CalculatorContext);
   const handleAdd = (index) => {
     return () => {
       const updated = [
@@ -366,8 +369,17 @@ const WaypointsForm = () => {
   return (
     <>
       <WaypointAdder />
+      <WaypointMarkers />
       <Form>
-        <label className="label fw-bold">Waypoints</label>
+        <label className="label d-flex justify-content-between">
+          <span className="fw-bold">Waypoints</span>
+          <Checkbox
+            value={showWaypoints}
+            onChange={setShowWaypoints}
+            name="showWaypoints"
+            label="show"
+          />
+        </label>
         <p className="text-muted">
           Include at least 2 waypoints.
           <br />
