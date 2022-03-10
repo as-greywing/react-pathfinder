@@ -2,21 +2,28 @@ import React, { useCallback, useEffect, useMemo, useState } from "react";
 import Source from "../mapbox/source";
 import Layer from "../mapbox/layer";
 import { useMap } from "../mapbox/use-map";
-import { generateMultiLineString } from "../utils/Misc";
+import { generateMultiLineStringV2 } from "../utils/Misc";
+import Popup from "../mapbox/popup";
 
 const Route = ({ path, name, styles }) => {
   const { current: map } = useMap();
   const [generatedId, setGeneratedId] = useState(null);
-  const data = useMemo(
-    () => generateMultiLineString({ path, name }),
-    [path, name]
-  );
+  const [popUpData, setPopUpData] = useState(null);
+  const data = useMemo(() => {
+    const generated = generateMultiLineStringV2({ path, name });
+    return generated;
+  }, [path, name]);
 
   const handleMouseMove = useCallback(
     (e) => {
       map.getCanvas().style.cursor = "pointer";
       if (generatedId === undefined || generatedId === null) {
         setGeneratedId(e.features[0].id);
+        setPopUpData({
+          longitude: e.lngLat.lng,
+          latitude: e.lngLat.lat,
+          data: e.features[0].properties.distance || "N/A",
+        });
         map.setFeatureState(
           {
             source: name,
@@ -28,13 +35,14 @@ const Route = ({ path, name, styles }) => {
         );
       }
     },
-    [map, generatedId]
+    [map, generatedId, name]
   );
 
   const handleMouseLeave = useCallback(
     (e) => {
       map.getCanvas().style.cursor = "";
       if (generatedId !== null && generatedId !== undefined) {
+        setPopUpData(null);
         map.setFeatureState(
           {
             source: name,
@@ -47,7 +55,7 @@ const Route = ({ path, name, styles }) => {
         setGeneratedId(null);
       }
     },
-    [map, generatedId]
+    [map, generatedId, name]
   );
 
   useEffect(() => {
@@ -57,7 +65,7 @@ const Route = ({ path, name, styles }) => {
       map.off("mousemove", name, handleMouseMove);
       map.off("mouseleave", name, handleMouseLeave);
     };
-  }, [map, handleMouseLeave, handleMouseMove]);
+  }, [map, name, handleMouseLeave, handleMouseMove]);
 
   const { paint, ...otherStyles } = styles;
 
@@ -89,9 +97,23 @@ const Route = ({ path, name, styles }) => {
   };
 
   return (
-    <Source id={name} type="geojson" data={data} generateId>
-      <Layer {...layerStyle} />
-    </Source>
+    <>
+      {popUpData && (
+        <Popup
+          onClose={() => setPopUpData(null)}
+          longitude={popUpData.longitude}
+          latitude={popUpData.latitude}
+        >
+          <div className="p-1">
+            <p>{`Segment Distance (${name})`}</p>
+            <p className="mb-0">{`${popUpData.data} km`}</p>
+          </div>
+        </Popup>
+      )}
+      <Source id={name} type="geojson" data={data} generateId>
+        <Layer {...layerStyle} />
+      </Source>
+    </>
   );
 };
 

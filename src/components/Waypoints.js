@@ -3,7 +3,7 @@ import { Form, Formik, useFormikContext } from "formik";
 import axios from "axios";
 import localforage from "localforage";
 import path from "ngraph.path";
-import { point } from "turf";
+import { point, distance } from "turf";
 import * as Yup from "yup";
 
 import InputField from "./InputField";
@@ -94,9 +94,10 @@ const Waypoints = () => {
             return Number.MAX_SAFE_INTEGER;
           }
         }
-        const dx = a[0] - b[0];
-        const dy = a[1] - b[1];
-        return Math.sqrt(dx * dx + dy * dy);
+        // const dx = a[0] - b[0];
+        // const dy = a[1] - b[1];
+        return distance(point([a[0], a[1]]), point([b[0], b[1]]));
+        // return Math.sqrt(dx * dx + dy * dy);
       },
     });
   }, [network, precision, nonIRTC, useSuez, usePanama]);
@@ -161,7 +162,6 @@ const Waypoints = () => {
           } else {
             const result = aStarFunc.find(_coor1, _coor2);
             if (result) {
-              // console.log("skip")
               acc.push(
                 result.map((eachNode) => [eachNode.data.x, eachNode.data.y])
               );
@@ -178,7 +178,15 @@ const Waypoints = () => {
         setNgResultStatus("No result..");
       }
     },
-    [graph, negativeGraph, nonIRTC, usePanama, useSuez]
+    [
+      graph,
+      negativeGraph,
+      nonIRTC,
+      usePanama,
+      useSuez,
+      setNgResult,
+      setNgResultStatus,
+    ]
   );
 
   /**
@@ -221,7 +229,7 @@ const Waypoints = () => {
         setGwResultStatus(error.message);
       }
     },
-    [usePanama, useSuez, nonIRTC]
+    [usePanama, useSuez, nonIRTC, setGwResult, setGwResultStatus]
   );
 
   const getPath = async (waypoints) => {
@@ -339,14 +347,19 @@ const Waypoints = () => {
       })}
       onSubmit={handleSubmit}
     >
-      <WaypointsForm />
+      <Form style={{ height: "100%" }}>
+        <WaypointAdder />
+        <WaypointMarkers />
+        <WaypointsForm />
+      </Form>
     </Formik>
   );
 };
 
 const WaypointsForm = () => {
   const { setFieldValue, values, errors, isSubmitting } = useFormikContext();
-  const { showWaypoints, setShowWaypoints } = useContext(CalculatorContext);
+  const { showWaypoints, setShowWaypoints, isPreparing } =
+    useContext(CalculatorContext);
   const handleAdd = (index) => {
     return () => {
       const updated = [
@@ -367,10 +380,11 @@ const WaypointsForm = () => {
     };
   };
   return (
-    <>
-      <WaypointAdder />
-      <WaypointMarkers />
-      <Form>
+    <div className="card" style={{ height: "100%" }}>
+      <div
+        className="card-body"
+        style={{ height: "calc(100% - 48px)", overflowY: "auto" }}
+      >
         <label className="label d-flex justify-content-between">
           <span className="fw-bold">Waypoints</span>
           <Checkbox
@@ -385,6 +399,17 @@ const WaypointsForm = () => {
           <br />
           (longitude, latitude)
         </p>
+        {!values.waypoints.length && (
+          <div className="d-flex gap-2 mb-3">
+            <button
+              className="btn btn-md btn-primary"
+              type="button"
+              onClick={handleAdd(0)}
+            >
+              Add a new waypoint
+            </button>
+          </div>
+        )}
         {values.waypoints.map((_, index) => (
           <div className="d-flex gap-2 mb-3" key={index}>
             <InputField disableError name={`waypoints.${index}.longitude`} />
@@ -409,18 +434,20 @@ const WaypointsForm = () => {
         {errors.waypoints && (
           <p className="text-danger">{JSON.stringify(errors.waypoints)}</p>
         )}
-        <button
-          type="submit"
-          className="btn btn-primary"
-          disabled={isSubmitting}
-        >
-          {isSubmitting ? "Loading" : "Calculate "}
-        </button>
         <p className="mt-3 mb-0">
           PRO TIP: click anywhere on the map to add a new waypoint.
         </p>
-      </Form>
-    </>
+      </div>
+      <div className="card-footer">
+        <button
+          type="submit"
+          className="btn btn-primary btn-sm"
+          disabled={isSubmitting || isPreparing}
+        >
+          {isSubmitting ? "Loading" : "Calculate "}
+        </button>
+      </div>
+    </div>
   );
 };
 

@@ -1,5 +1,4 @@
-/* global document */
-import * as React from "react";
+import React from "react";
 import { createPortal } from "react-dom";
 import { useEffect, useMemo, useRef, useContext } from "react";
 import { applyReactStyle } from "../utils/apply-react-style";
@@ -63,7 +62,7 @@ function Marker(props) {
     });
 
     return mk;
-  }, []);
+  }, []); // eslint-disable-line
 
   useEffect(() => {
     marker.addTo(map.getMap());
@@ -71,11 +70,11 @@ function Marker(props) {
     return () => {
       marker.remove();
     };
-  }, []);
+  }, []); // eslint-disable-line
 
   useEffect(() => {
     applyReactStyle(marker.getElement(), props.style);
-  }, [props.style]);
+  }, [props.style, marker]);
 
   if (
     marker.getLngLat().lng !== props.longitude ||

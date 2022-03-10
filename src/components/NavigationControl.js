@@ -9,7 +9,7 @@ function NavigationControl(props) {
 
   useEffect(() => {
     applyReactStyle(ctrl._container, props.style);
-  }, [props.style]);
+  }, [props.style, ctrl]);
 
   return null;
 }

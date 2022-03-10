@@ -81,21 +81,21 @@ const Finder = () => {
    * Fetch the network json from the endpoint, if not from indexedDB
    * Currently making use of the 20km resolution network
    */
-  useEffect(() => {
-    async function fetch() {
-      const hasNetwork = await localforage.getItem("network");
-      if (!hasNetwork) {
-        const { data } = await axios("http://localhost:3123/network/20");
-        localforage.setItem("network", data);
-        setNetwork(data);
-        setNegativeExtNetwork(modifyGeoJSON(data, false));
-      } else {
-        setNetwork(hasNetwork);
-        setNegativeExtNetwork(modifyGeoJSON(hasNetwork, false));
-      }
-    }
-    fetch();
-  }, []);
+  // useEffect(() => {
+  //   async function fetch() {
+  //     const hasNetwork = await localforage.getItem("network");
+  //     if (!hasNetwork) {
+  //       const { data } = await axios("http://localhost:3123/network/20");
+  //       localforage.setItem("network", data);
+  //       setNetwork(data);
+  //       setNegativeExtNetwork(modifyGeoJSON(data, false));
+  //     } else {
+  //       setNetwork(hasNetwork);
+  //       setNegativeExtNetwork(modifyGeoJSON(hasNetwork, false));
+  //     }
+  //   }
+  //   fetch();
+  // }, []);
 
   const graph = useMemo(() => {
     if (!network) return null;

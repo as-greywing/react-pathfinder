@@ -1,7 +1,7 @@
 import React from "react";
 import cx from "classnames";
 
-const Card = ({ children, className, ...props }) => {
+export const Card = ({ children, className, ...props }) => {
   return (
     <div className={cx("card", className)} {...props}>
       {children}
@@ -9,17 +9,21 @@ const Card = ({ children, className, ...props }) => {
   );
 };
 
-const CardBody = ({ children }) => {
-  return <div className="card-body">{children}</div>;
+const CardBody = ({ children, style }) => {
+  return (
+    <div className="card-body" style={style}>
+      {children}
+    </div>
+  );
 };
 
 const CardFooter = ({ children }) => (
   <div className="card-footer">{children}</div>
 );
 
-const GenericCard = ({ children, footer, ...props }) => (
+const GenericCard = ({ children, footer, bodyStyle, ...props }) => (
   <Card {...props}>
-    <CardBody>{children}</CardBody>
+    <CardBody style={bodyStyle}>{children}</CardBody>
     {footer && <CardFooter>{footer}</CardFooter>}
   </Card>
 );

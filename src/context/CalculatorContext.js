@@ -3,6 +3,8 @@ import React, { createContext, useState } from "react";
 export const CalculatorContext = createContext(null);
 
 export const CalculatorProvider = (props) => {
+  const [isPreparing, setIsPreparing] = useState(true);
+  const [networkRes, setNetworkRes] = useState('20');
   const [network, setNetwork] = useState(null);
   const [negativeExtNetwork, setNegativeExtNetwork] = useState(null);
 
@@ -71,6 +73,10 @@ export const CalculatorProvider = (props) => {
         setUseSuez,
         showWaypoints,
         setShowWaypoints,
+        isPreparing,
+        setIsPreparing,
+        networkRes,
+        setNetworkRes,
       }}
     >
       {props.children}

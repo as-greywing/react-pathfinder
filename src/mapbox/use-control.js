@@ -3,7 +3,7 @@ import { MapContext } from "./map";
 
 export default function useControl(onCreate, onRemove, opts) {
   const context = useContext(MapContext);
-  const ctrl = useMemo(() => onCreate(context), []);
+  const ctrl = useMemo(() => onCreate(context), []); // eslint-disable-line
 
   useEffect(() => {
     const { map } = context;
@@ -20,7 +20,7 @@ export default function useControl(onCreate, onRemove, opts) {
         map.removeControl(ctrl);
       }
     };
-  }, []);
+  }, []); // eslint-disable-line
 
   return ctrl;
 }

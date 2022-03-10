@@ -1,8 +1,9 @@
 import React, { useContext } from "react";
 
 import Checkbox from "./Checkbox";
-import { BADGE_COLORS } from "../constants";
+import { BADGE_COLORS, NETWORK_RES } from "../constants";
 import { CalculatorContext } from "../context/CalculatorContext";
+import Radio from "./Radio";
 
 const Settings = () => {
   const {
@@ -26,11 +27,27 @@ const Settings = () => {
     setUsePanama,
     useSuez,
     setUseSuez,
+    networkRes,
+    setNetworkRes,
   } = useContext(CalculatorContext);
 
   return (
     <div>
       <label className="label fw-bold">Settings</label>
+      <div className="my-3">
+        <label>Network Resolution</label>
+        <div className="d-flex gap-2">
+          {NETWORK_RES.map((resolution) => (
+            <Radio
+              key={resolution}
+              name={resolution}
+              value={Boolean(Number(networkRes) === Number(resolution))}
+              onChange={setNetworkRes}
+              label={`${resolution}km`}
+            />
+          ))}
+        </div>
+      </div>
       <div className="my-3 d-flex gap-2">
         <Checkbox
           name="nonIRTC"

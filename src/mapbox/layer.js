@@ -71,7 +71,7 @@ function Layer(props) {
   const propsRef = useRef(props);
   const [, setStyleLoaded] = useState(0);
 
-  const id = useMemo(() => props.id || `jsx-layer-${layerCounter++}`, []);
+  const id = useMemo(() => props.id || `jsx-layer-${layerCounter++}`, []); // eslint-disable-line
 
   useEffect(() => {
     if (map) {
@@ -88,7 +88,7 @@ function Layer(props) {
       };
     }
     return undefined;
-  }, [map]);
+  }, [map, id]);
 
   // @ts-ignore
   const layer = map && map.style && map.getLayer(id);

@@ -202,6 +202,39 @@ const aStarOption = (nonIRTC = false, useSuez = true, usePanama = true) => ({
   },
 });
 
+const calcDistance = (segment) => {
+  return Math.round(
+    segment.reduce((acc, each, index) => {
+      if (index !== segment.length - 1) {
+        acc += distance(
+          point([each[0], each[1]]),
+          point([segment[index + 1][0], segment[index + 1][1]])
+        );
+      }
+      return acc;
+    }, 0),
+    0
+  );
+};
+
+const generateMultiLineStringV2 = ({ path, name, ...props }) => ({
+  type: "FeatureCollection",
+  properties: {
+    name,
+    ...props,
+  },
+  features: path.map((segment) => ({
+    type: "Feature",
+    properties: {
+      distance: calcDistance(segment),
+    },
+    geometry: {
+      type: "LineString",
+      coordinates: splitCoords(segment),
+    },
+  })),
+});
+
 const generateMultiLineString = ({ path, name, ...props }) => ({
   type: "FeatureCollection",
   properties: {
@@ -228,7 +261,7 @@ const generatePointGeoJSON = ({ points, name, ...props }) => ({
   },
   features: points.map(({ coord, ...pointProps }) => ({
     type: "Feature",
-    properties: pointProps,
+    properties: { longitude: coord[0], latitude: coord[1], ...pointProps },
     geometry: {
       type: "Point",
       coordinates: coord,
@@ -238,6 +271,7 @@ const generatePointGeoJSON = ({ points, name, ...props }) => ({
 
 export {
   generateMultiLineString,
+  generateMultiLineStringV2,
   generatePointGeoJSON,
   processMeridianCut,
   geojsonToGraph,

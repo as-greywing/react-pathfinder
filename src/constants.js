@@ -74,5 +74,6 @@ const BADGE_COLORS = {
   "No result..": "danger",
   "not calculating": "info",
 };
+const NETWORK_RES = [5, 10, 20, 50, 100];
 
-export { initialWaypoints, BADGE_COLORS };
+export { initialWaypoints, BADGE_COLORS, NETWORK_RES };

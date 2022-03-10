@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from "react";
+import { useEffect, useCallback } from "react";
 import { useField } from "formik";
 import { useMap } from "../mapbox/use-map";
 
@@ -26,7 +26,7 @@ const WaypointAdder = () => {
         helpers.setValue(updatedWaypoints);
       }
     },
-    [field, helpers]
+    [map, field, helpers]
   );
 
   useEffect(() => {
@@ -34,7 +34,7 @@ const WaypointAdder = () => {
     return () => {
       map.off("click", onMapClick);
     };
-  }, [onMapClick]);
+  }, [map, onMapClick]);
 
   return null;
 };

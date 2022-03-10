@@ -2,6 +2,7 @@ import React from "react";
 import Waypoints from "./Waypoints";
 import Settings from "./Settings";
 import GenericCard from "./Card";
+import Network from "./Network";
 
 const SideBarContainer = ({ children }) => {
   return (
@@ -14,7 +15,7 @@ const SideBarContainer = ({ children }) => {
         width: 350,
       }}
     >
-      <div className="p-1 d-flex flex-grow-1 gap-2 flex-column">{children}</div>
+      <div className="d-flex flex-grow-1 flex-column">{children}</div>
     </div>
   );
 };
@@ -22,16 +23,18 @@ const SideBarContainer = ({ children }) => {
 const SideBar = () => {
   return (
     <SideBarContainer>
-      <GenericCard
-        style={{ flex: "1 1 50%", height: "100%", overflowX: "auto" }}
-      >
+      <div className="p-1" style={{ height: "50vh" }}>
         <Waypoints />
-      </GenericCard>
-      <GenericCard
-        style={{ flex: "1 1 50%", height: "100%", overflowX: "auto" }}
-      >
-        <Settings />
-      </GenericCard>
+      </div>
+      <div className="p-1" style={{ height: "50vh" }}>
+        <GenericCard
+          style={{ height: "100%" }}
+          bodyStyle={{ height: "calc(100% - 48px)", overflowY: "auto" }}
+          footer={<Network />}
+        >
+          <Settings />
+        </GenericCard>
+      </div>
     </SideBarContainer>
   );
 };

@@ -80,7 +80,7 @@ function Source(props) {
   const propsRef = useRef(props);
   const [, setStyleLoaded] = useState(0);
 
-  const id = useMemo(() => props.id || `jsx-source-${sourceCounter++}`, []);
+  const id = useMemo(() => props.id || `jsx-source-${sourceCounter++}`, []); // eslint-disable-line
 
   useEffect(() => {
     if (map) {
@@ -93,9 +93,7 @@ function Source(props) {
         // Parent effects are destroyed before child ones, see
         // https://github.com/facebook/react/issues/16728
         // Source can only be removed after all child layers are removed
-        /* global setTimeout */
         setTimeout(() => {
-          // @ts-ignore
           if (map.style && map.style._loaded && map.getSource(id)) {
             map.removeSource(id);
           }
@@ -103,7 +101,7 @@ function Source(props) {
       };
     }
     return undefined;
-  }, [map]);
+  }, [map, id]);
 
   // @ts-ignore
   let source = map && map.style && map.getSource(id);
