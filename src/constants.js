@@ -66,6 +66,10 @@ const initialWaypoints = {
     { longitude: 49.195349593117186, latitude: 30.573621044811162 },
     { longitude: 35.04184720904641, latitude: 32.75313700832591 },
   ],
+  example8: [
+    { longitude: -54.3264428301202, latitude: 48.396361717360094 },
+    { longitude: 145.60691273994445, latitude: -38.010501111228045 },
+  ],
 };
 
 const BADGE_COLORS = {
