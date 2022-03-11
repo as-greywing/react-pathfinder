@@ -1,4 +1,4 @@
-import { Position, point } from "@turf/helpers";
+import { Position, point, Coord } from "@turf/helpers";
 import distance from "@turf/distance";
 import { Feature } from "geojson";
 import { NodeId } from "ngraph.graph";
@@ -11,18 +11,13 @@ import {
 } from "./types";
 
 /**
- * This function cycles through the coordinates and checks if it should be shifted by 1 cycle (360 degree cycle)
- * If required, it will add a new feature with the new coordinates ontop of the existing feature.
- * @param {GeoJSON.FeatureCollection} originalFeatureCollection geojson collection
- * @returns geojson
+ * This function cycles through the coordinates and checks if it should be correct into a full positive or negative 360 degree cycle
  */
-
 const alterFeatureCoordinates = (
   originalFeatureCollection: GeoJSON.FeatureCollection<NetworkLineString>,
   direction: CycleDirection = "LTR"
 ): GeoJSON.FeatureCollection<NetworkLineString> => {
   const features: Array<Feature<NetworkLineString>> = [];
-  // console.log("original", direction, originalFeatureCollection);
   originalFeatureCollection.features.forEach((feature) => {
     features.push({
       ...feature,
@@ -47,41 +42,6 @@ const alterFeatureCoordinates = (
       },
     });
   });
-  // originalFeatureCollection.features.forEach(
-  //   (feature: Feature<NetworkLineString>) => {
-  //     if (feature.geometry && feature.geometry.coordinates) {
-  //       features.push({
-  //         ...feature,
-  //         geometry: {
-  //           ...feature.geometry,
-  //           coordinates: feature.geometry.coordinates.reduce(
-  //             (acc: Array<Position>, coord: Position) => {
-  //               if (direction === "LTR") {
-  //                 if (coord[0] < 0) {
-  //                   acc.push([coord[0] + 360, coord[1]]);
-  //                 } else {
-  //                   acc.push(coord);
-  //                 }
-  //               } else if (direction === "RTL") {
-  //                 if (coord[0] > 0) {
-  //                   acc.push([coord[0] - 360, coord[1]]);
-  //                 } else {
-  //                   acc.push(coord);
-  //                 }
-  //               } else {
-  //                 console.error("THIS SHOULDN'T HAPPEN!");
-  //               }
-  //               return acc;
-  //             },
-  //             []
-  //           ),
-  //         },
-  //       });
-  //     }
-  //     features.push(feature);
-  //   }
-  // );
-  // return originalFeatureCollection;
   return {
     ...originalFeatureCollection,
     features,
@@ -126,9 +86,10 @@ const setOptions = (
 
 /**
  * This checks the starting and finishing coordinates then indicates if it has been changed
- * @param start
- * @param finish
- * @returns
+ * and the direction of change
+ * @param {Position} start
+ * @param {Position} finish
+ * @returns {coord: [Position, Position], changed: boolean, direction?: CycleDirection}
  */
 const processMeridianCrossing = (
   start: Position,
