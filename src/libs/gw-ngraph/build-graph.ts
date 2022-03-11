@@ -6,7 +6,7 @@ import {
   HashCoordinateObject,
   NetworkLineString,
 } from "./types";
-import { expandFeaturesByOneCycle, getLocationHash } from "./utils";
+import { alterFeatureCoordinates, getLocationHash } from "./utils";
 
 const Grapher = (
   features: Array<GeoJSON.Feature<NetworkLineString>>
@@ -79,12 +79,17 @@ const BuildGraph = (
   /**
    * An extended Graph is required to perform calculations when crossing the meridian
    */
-  const extendedNetwork = expandFeaturesByOneCycle(network);
   const mainGraph: GraphObject = Grapher(network.features);
-  const extendedGraph: GraphObject = Grapher(extendedNetwork.features);
+  const positiveNetwork = alterFeatureCoordinates(network, "LTR");
+  const positiveGraph: GraphObject = Grapher(positiveNetwork.features);
+
+  const negativeNetwork = alterFeatureCoordinates(network, "RTL");
+  const negativeGraph: GraphObject = Grapher(negativeNetwork.features);
+
   return {
     mainGraph,
-    extendedGraph,
+    positiveGraph,
+    negativeGraph,
   };
 };
 

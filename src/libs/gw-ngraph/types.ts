@@ -13,14 +13,19 @@ export interface NodeData {
 
 export interface Graph {
   mainGraph: GraphObject;
-  extendedGraph: GraphObject;
+  positiveGraph: GraphObject;
+  negativeGraph: GraphObject;
 }
 
 export interface Route {
-  path: Array<Array<Position>>
-  distance: number
+  path: Array<Array<Position>>;
+  distance: number;
 }
-
+export interface MultiRoute {
+  routes: Array<Route>;
+  path: Array<Array<Position>>;
+  distance: number;
+}
 export interface LinkWithDescription extends Link {
   desc_: string | null;
 }
@@ -37,3 +42,5 @@ export interface HashCoordinateObject {
   hash: NodeId;
   location: Position;
 }
+
+export type CycleDirection = "LTR" | "RTL";

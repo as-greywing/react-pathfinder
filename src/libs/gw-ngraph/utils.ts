@@ -1,9 +1,14 @@
 import { Position, point } from "@turf/helpers";
 import distance from "@turf/distance";
 import { Feature } from "geojson";
-import { Node, NodeId } from "ngraph.graph";
+import { NodeId } from "ngraph.graph";
 import { PathFinderOptions } from "ngraph.path";
-import { LinkWithDescription, NetworkLineString, NodeData } from "./types";
+import {
+  CycleDirection,
+  LinkWithDescription,
+  NetworkLineString,
+  NodeData,
+} from "./types";
 
 /**
  * This function cycles through the coordinates and checks if it should be shifted by 1 cycle (360 degree cycle)
@@ -12,42 +17,71 @@ import { LinkWithDescription, NetworkLineString, NodeData } from "./types";
  * @returns geojson
  */
 
-const expandFeaturesByOneCycle = (
-  originalFeatureCollection: GeoJSON.FeatureCollection<NetworkLineString>
+const alterFeatureCoordinates = (
+  originalFeatureCollection: GeoJSON.FeatureCollection<NetworkLineString>,
+  direction: CycleDirection = "LTR"
 ): GeoJSON.FeatureCollection<NetworkLineString> => {
   const features: Array<Feature<NetworkLineString>> = [];
-  originalFeatureCollection.features.forEach(
-    (feature: Feature<NetworkLineString>) => {
-      if (feature.geometry && feature.geometry.coordinates) {
-        let hasToAdd = false;
-        // check if there are new features to add
-        feature.geometry.coordinates.forEach((coord: Position) => {
-          if (coord[0] >= 0) {
-            hasToAdd = true;
+  // console.log("original", direction, originalFeatureCollection);
+  originalFeatureCollection.features.forEach((feature) => {
+    features.push({
+      ...feature,
+      geometry: {
+        ...feature.geometry,
+        coordinates: feature.geometry.coordinates.map((coord) => {
+          if (direction === "LTR") {
+            if (coord[0] < 0) {
+              return [coord[0] + 360, coord[1]];
+            }
+            return coord;
+          } else if (direction === "RTL") {
+            if (coord[0] > 0) {
+              return [coord[0] - 360, coord[1]];
+            }
+            return coord;
+          } else {
+            console.error("THIS SHOULDN'T HAPPEN!");
+            return coord;
           }
-        });
-
-        if (hasToAdd) {
-          features.push({
-            ...feature,
-            geometry: {
-              ...feature.geometry,
-              coordinates: feature.geometry.coordinates.reduce(
-                (acc: Array<Position>, coord: Position) => {
-                  if (coord[0] >= 0) {
-                    acc.push([coord[0] - 360, coord[1]]);
-                  }
-                  return acc;
-                },
-                []
-              ),
-            },
-          });
-        }
-      }
-      features.push(feature);
-    }
-  );
+        }),
+      },
+    });
+  });
+  // originalFeatureCollection.features.forEach(
+  //   (feature: Feature<NetworkLineString>) => {
+  //     if (feature.geometry && feature.geometry.coordinates) {
+  //       features.push({
+  //         ...feature,
+  //         geometry: {
+  //           ...feature.geometry,
+  //           coordinates: feature.geometry.coordinates.reduce(
+  //             (acc: Array<Position>, coord: Position) => {
+  //               if (direction === "LTR") {
+  //                 if (coord[0] < 0) {
+  //                   acc.push([coord[0] + 360, coord[1]]);
+  //                 } else {
+  //                   acc.push(coord);
+  //                 }
+  //               } else if (direction === "RTL") {
+  //                 if (coord[0] > 0) {
+  //                   acc.push([coord[0] - 360, coord[1]]);
+  //                 } else {
+  //                   acc.push(coord);
+  //                 }
+  //               } else {
+  //                 console.error("THIS SHOULDN'T HAPPEN!");
+  //               }
+  //               return acc;
+  //             },
+  //             []
+  //           ),
+  //         },
+  //       });
+  //     }
+  //     features.push(feature);
+  //   }
+  // );
+  // return originalFeatureCollection;
   return {
     ...originalFeatureCollection,
     features,
@@ -99,32 +133,29 @@ const setOptions = (
 const processMeridianCrossing = (
   start: Position,
   finish: Position
-): { coord: [Position, Position]; changed: boolean } => {
+): {
+  coord: [Position, Position];
+  changed: boolean;
+  direction?: CycleDirection;
+} => {
   let coord: [Position, Position] = [start, finish];
   let changed: boolean = false;
-  // const longitudeDifference = start[0] - finish[0];
-  // check direction of travel between start and finish for longitude
+  let direction: CycleDirection = undefined;
 
-  if (start[0] >= 0 && finish[0] < 0) {
+  if (start[0] >= 0 && finish[0] >= 0) {
+    // do nothing
+  } else if (start[0] <= 0 && finish[0] <= 0) {
+    // do nothing
+  } else if (start[0] >= 0 && finish[0] <= 0) {
     changed = true;
-    coord = [[start[0] - 360, start[1]], finish];
-  } else if (start[0] < 0 && finish[0] > 0) {
+    coord = [start, [finish[0] + 360, finish[1]]];
+    direction = "LTR";
+  } else if (start[0] <= 0 && finish[0] >= 0) {
     changed = true;
     coord = [start, [finish[0] - 360, finish[1]]];
+    direction = "RTL";
   }
-
-  // This was the old method - probably okay to remove.
-  // check if the difference is greater than a hemisphere
-  // if (longitudeDifference < -180) {
-  //   console.log("3");
-  //   changed = true;
-  //   coord = [start, [finish[0] - 360, finish[1]]];
-  // } else if (longitudeDifference > 180) {
-  //   console.log("4");
-  //   changed = true;
-  //   coord = [[start[0] - 360, start[1]], finish];
-  // }
-  return { coord, changed };
+  return { coord, changed, direction };
 };
 
 const getNearestNeighbour = (
@@ -151,98 +182,52 @@ const getNearestNeighbour = (
   return nearestNeighbour.selected;
 };
 
-const breakMeridianPaths = (paths: Array<Position>): Array<Array<Position>> => {
-  const firstArray: Array<Position> = [];
-  const secondArray: Array<Position> = [];
-
-  // Check if it crosses the meridian, but identifying the longitude changes from positive to negative or vice versa
-  const crossesMeridian = paths.reduce((acc, node) => {
-    if (node[0] < 0 && node[0] + 360 > 0) {
-      return true;
-    }
-    return acc;
-  }, false);
-
-  if (!crossesMeridian) return [paths];
-
-  const dirn = paths[0][0] - paths[1][0];
-  if (dirn >= 0) {
-    paths.reverse();
-  }
-
-  const isStartNegative = paths[0][0] < 0;
-  let hasReachedfirstIntersection = false;
-  paths.forEach((node, index) => {
-    if (isStartNegative) {
-      if (hasReachedfirstIntersection) {
-        secondArray.push(node);
-      } else {
-        if (node[0] >= 0) {
-          hasReachedfirstIntersection = true;
-          // check if close to 0 or to 180
-          if (180 - node[0] > 90) {
-            // closer to zero
-            if (node[0] === 0) {
-              firstArray.push(node);
-            } else {
-              firstArray.push([0, node[1]]);
-              secondArray.push([0, node[1]]);
-            }
-          } else {
-            firstArray.push([-180, node[1]]);
-            secondArray.push([180, node[1]]);
-          }
-          secondArray.push(node);
-        } else {
-          firstArray.push(node);
+const breakMeridianPaths = (
+  paths: Array<Position>,
+  direction?: CycleDirection
+): Array<Array<Position>> => {
+  // If the path doesn't make use of modified graphs, skip!
+  if (!direction) return [paths];
+  const breakPoints: Array<number> = [];
+  const reformattedPositions: Array<Position> = paths.reduce(
+    (acc: Array<Position>, node: Position, index: number) => {
+      if (node[0] <= -180) {
+        acc.push([node[0] + 360, node[1]]);
+        if (node[0] + 360 === 180) {
+          breakPoints.push(index + 1);
+          acc.push(node);
         }
-      }
-    } else {
-      if (hasReachedfirstIntersection) {
-        secondArray.push(node);
-      } else {
-        if (node[0] < 0) {
-          hasReachedfirstIntersection = true;
-          if (180 + node[0] > 90) {
-            // closer to zero
-            if (paths[index - 1][0] !== 0) {
-              if (node[0] === 0) {
-                secondArray.push([node[0], node[1]]);
-              } else {
-                firstArray.push([0, node[1]]);
-                secondArray.push([0, node[1]]);
-              }
-            } else {
-              secondArray.push([paths[index - 1][0], paths[index - 1][1]]);
-            }
-          } else {
-            // closer to 180
-            if (paths[index - 1][0] > 180) {
-              secondArray.push([
-                paths[index - 1][0] - 360,
-                paths[index - 1][1],
-              ]);
-            } else {
-              firstArray.push([-180, node[1]]);
-              secondArray.push([180, node[1]]);
-            }
-          }
-          secondArray.push(node);
-        } else {
-          firstArray.push(node);
+      } else if (node[0] >= 180) {
+        acc.push([node[0] - 360, node[1]]);
+        if (node[0] - 360 === -180) {
+          breakPoints.push(index + 1);
+          acc.push(node);
         }
+      } else {
+        acc.push(node);
       }
-    }
-  });
+      return acc;
+    },
+    []
+  );
 
-  if (!secondArray.length) {
-    return [firstArray];
+  const finalPath: Array<Array<Position>> = [];
+
+  // Where breakpoints have been identified, split the array - particularly at 180 degree meridian
+  if (breakPoints.length) {
+    do {
+      const check = reformattedPositions.splice(0, breakPoints.shift());
+      finalPath.push(check);
+    } while (breakPoints.length);
+    finalPath.push(reformattedPositions);
+  } else {
+    finalPath.push(reformattedPositions);
   }
-  return [firstArray, secondArray];
+  return finalPath;
 };
 
 export {
-  expandFeaturesByOneCycle,
+  alterFeatureCoordinates,
   getLocationHash,
   setOptions,
   processMeridianCrossing,
