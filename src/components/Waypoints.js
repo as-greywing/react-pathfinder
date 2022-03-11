@@ -1,25 +1,18 @@
-import { useCallback, useEffect, useMemo, useContext } from "react";
+import { useCallback, useMemo, useContext } from "react";
 import { Form, Formik, useFormikContext } from "formik";
 import axios from "axios";
-import localforage from "localforage";
-import path from "ngraph.path";
 import { point, distance } from "turf";
 import * as Yup from "yup";
 
 import InputField from "./InputField";
 import { initialWaypoints } from "../constants";
 import PathFinder from "../libs/gpf";
-import {
-  aStarOption,
-  geojsonToGraph,
-  getNearestNeighbour,
-  modifyGeoJSON,
-  processMeridianCut,
-} from "../utils/Misc";
+import { processMeridianCut } from "../utils/Misc";
 import { CalculatorContext } from "../context/CalculatorContext";
 import WaypointAdder from "./WaypointAdder";
 import WaypointMarkers from "./WaypointMarkers";
 import Checkbox from "./Checkbox";
+import newGrapher, { findMany, setOptions } from "../libs/gw-ngraph";
 
 const Waypoints = () => {
   const {
@@ -31,9 +24,6 @@ const Waypoints = () => {
     usePanama,
     useSuez,
     network,
-    setNetwork,
-    negativeExtNetwork,
-    setNegativeExtNetwork,
     setNgResult,
     setNgResultStatus,
     setGwResult,
@@ -44,35 +34,11 @@ const Waypoints = () => {
     setEndTimeGw,
     setEndTimeNg,
   } = useContext(CalculatorContext);
-  /**
-   * Fetch the network json from the endpoint, if not from indexedDB
-   * Currently making use of the 20km resolution network
-   */
-  useEffect(() => {
-    async function fetch() {
-      const hasNetwork = await localforage.getItem("network");
-      if (!hasNetwork) {
-        const { data } = await axios("http://localhost:3123/network/20");
-        localforage.setItem("network", data);
-        setNetwork(data);
-        setNegativeExtNetwork(modifyGeoJSON(data, false));
-      } else {
-        setNetwork(hasNetwork);
-        setNegativeExtNetwork(modifyGeoJSON(hasNetwork, false));
-      }
-    }
-    fetch();
-  }, [setNetwork, setNegativeExtNetwork]);
 
-  const graph = useMemo(() => {
+  const newGraph = useMemo(() => {
     if (!network) return null;
-    return geojsonToGraph(network);
+    return newGrapher(network);
   }, [network]);
-
-  const negativeGraph = useMemo(() => {
-    if (!negativeExtNetwork) return null;
-    return geojsonToGraph(negativeExtNetwork);
-  }, [negativeExtNetwork]);
 
   const pathFinder = useMemo(() => {
     if (!network) return null;
@@ -94,10 +60,7 @@ const Waypoints = () => {
             return Number.MAX_SAFE_INTEGER;
           }
         }
-        // const dx = a[0] - b[0];
-        // const dy = a[1] - b[1];
         return distance(point([a[0], a[1]]), point([b[0], b[1]]));
-        // return Math.sqrt(dx * dx + dy * dy);
       },
     });
   }, [network, precision, nonIRTC, useSuez, usePanama]);
@@ -107,86 +70,22 @@ const Waypoints = () => {
    */
   const getNGPath = useCallback(
     (waypoints) => {
-      if (!graph) return [];
-      if (!negativeGraph) return [];
-      const aStarOptions = aStarOption(nonIRTC, useSuez, usePanama);
+      if (!newGraph) return [];
+      const aStarOptions = setOptions(nonIRTC, useSuez, usePanama);
+      const allWaypoints = waypoints.map((each) => [
+        each.longitude,
+        each.latitude,
+      ]);
+      const finalRoute = findMany(newGraph, allWaypoints, aStarOptions);
 
-      const aStarFunc = path.aStar(graph.graph, aStarOptions);
-      const aStarFuncNegative = path.aStar(negativeGraph.graph, aStarOptions);
-
-      const paths = waypoints.reduce((acc, waypoint, index) => {
-        if (index + 1 < waypoints.length) {
-          const _coor1 = getNearestNeighbour(
-            [waypoint.longitude, waypoint.latitude],
-            graph.vertices
-          );
-          const _coor2 = getNearestNeighbour(
-            [waypoints[index + 1].longitude, waypoints[index + 1].latitude],
-            graph.vertices
-          );
-          // Check coordinates if the distance between the 2 longitudes are greater than 180.
-          const [coor1, coor2, changedIndex] = processMeridianCut(
-            _coor1.split(","),
-            _coor2.split(",")
-          );
-
-          if (changedIndex !== undefined) {
-            const result = aStarFuncNegative.find(
-              coor1.join(","),
-              coor2.join(",")
-            );
-
-            const firstArray = [];
-            const secondArray = [];
-            let firstIntersection = true;
-
-            let orderedArray = result.sort((a, b) => Number(b) - Number(a));
-            if (changedIndex === 1) {
-              orderedArray.reverse();
-            }
-            orderedArray.forEach((node) => {
-              if (Number(node.data.x) <= -180) {
-                if (firstIntersection) {
-                  firstArray.push([node.data.x, node.data.y]);
-                  firstIntersection = false;
-                }
-                secondArray.push([Number(node.data.x) + 360, node.data.y]);
-              } else {
-                firstArray.push([node.data.x, node.data.y]);
-              }
-            });
-            if (result) {
-              acc.push(firstArray);
-              acc.push(secondArray);
-            }
-          } else {
-            const result = aStarFunc.find(_coor1, _coor2);
-            if (result) {
-              acc.push(
-                result.map((eachNode) => [eachNode.data.x, eachNode.data.y])
-              );
-            }
-          }
-        }
-        return acc;
-      }, []);
-
-      if (paths.length) {
-        setNgResult(paths);
+      if (finalRoute.distance) {
+        setNgResult(finalRoute.path);
         setNgResultStatus("calculated");
       } else {
         setNgResultStatus("No result..");
       }
     },
-    [
-      graph,
-      negativeGraph,
-      nonIRTC,
-      usePanama,
-      useSuez,
-      setNgResult,
-      setNgResultStatus,
-    ]
+    [nonIRTC, usePanama, useSuez, setNgResult, setNgResultStatus, newGraph]
   );
 
   /**

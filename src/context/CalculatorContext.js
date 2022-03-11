@@ -8,6 +8,7 @@ export const CalculatorProvider = (props) => {
   const [network, setNetwork] = useState(null);
   const [negativeExtNetwork, setNegativeExtNetwork] = useState(null);
   const [showNetwork, setShowNetwork] = useState(false);
+  const [newGraph, setNewGraph] = useState(null);
 
   const [result, setResult] = useState([]);
   const [resultStatus, setResultStatus] = useState("not-started");
@@ -80,6 +81,8 @@ export const CalculatorProvider = (props) => {
         setNetworkRes,
         showNetwork,
         setShowNetwork,
+        newGraph,
+        setNewGraph,
       }}
     >
       {props.children}
