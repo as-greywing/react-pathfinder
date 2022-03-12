@@ -71,9 +71,9 @@ const shortestRoute = findMany(graph, waypoints, options);
 ```
 
 ### 4. Distance (Optional)
-If required, you can change the units of distance using
+If required, you can change the default units of distance from `kilometers` to `miles` using the following:
 ```
-const shortestRoute = findMany(graph, waypoints, 'miles);
+const shortestRoute = findMany(graph, waypoints, 'miles');
 ```
 
 ## Notes
