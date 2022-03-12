@@ -1,6 +1,6 @@
 import { point, Position } from "@turf/helpers";
 import distance from "@turf/distance";
-import { Graph, Route, MultiRoute } from "./types";
+import { Graph, Route, MultiRoute, DistanceUnits } from "./types";
 import path, { PathFinderOptions } from "ngraph.path";
 import { Link, Node } from "ngraph.graph";
 import {
@@ -12,7 +12,8 @@ import {
 const multiRouteCalculator = (
   graph: Graph,
   waypoints: Array<Position>,
-  options?: PathFinderOptions<Node, Link>
+  options: PathFinderOptions<Node, Link>,
+  units: DistanceUnits = "kilometers"
 ): MultiRoute => {
   const allRoutes: Array<Route> = [];
   let totalDistance: number = 0;
@@ -71,7 +72,8 @@ const multiRouteCalculator = (
               return innerAcc;
             } else {
               return (
-                innerAcc + distance(point(path), point(groupPath[index - 1]))
+                innerAcc +
+                distance(point(path), point(groupPath[index - 1]), { units })
               );
             }
           }, 0);

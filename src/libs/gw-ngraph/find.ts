@@ -1,6 +1,6 @@
 import { point, Position } from "@turf/helpers";
 import distance from "@turf/distance";
-import { Graph, Route } from "./types";
+import { DistanceUnits, Graph, Route } from "./types";
 import path, { PathFinderOptions } from "ngraph.path";
 import { Link, Node } from "ngraph.graph";
 import {
@@ -12,7 +12,8 @@ import {
 const singleRouteCalculator = (
   graph: Graph,
   waypoints: [Position, Position],
-  options?: PathFinderOptions<Node, Link>
+  options: PathFinderOptions<Node, Link>,
+  units: DistanceUnits = "kilometers"
 ): Route => {
   const [_start, _finish] = waypoints;
   // 1. Process the start and finish points in the event that it crosses the 180 degree meridian
@@ -62,7 +63,12 @@ const singleRouteCalculator = (
       if (index === 0) {
         return innerAcc;
       } else {
-        return innerAcc + distance(point(path), point(groupPath[index - 1]));
+        return (
+          innerAcc +
+          distance(point(path), point(groupPath[index - 1]), {
+            units,
+          })
+        );
       }
     }, 0);
     return acc + groupPathLength;

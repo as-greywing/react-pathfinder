@@ -6,6 +6,8 @@ export interface GraphObject {
   vertices: Array<Position>;
 }
 
+export type DistanceUnits = 'kilometers' | 'degrees' | 'radians' | 'miles'
+
 export interface NodeData {
   x: number;
   y: number;
