@@ -1,4 +1,4 @@
-import { Position, point, Coord } from "@turf/helpers";
+import { Position, point } from "@turf/helpers";
 import distance from "@turf/distance";
 import { Feature } from "geojson";
 import { NodeId } from "ngraph.graph";

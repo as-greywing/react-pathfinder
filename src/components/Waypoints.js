@@ -279,7 +279,22 @@ const WaypointsForm = () => {
     };
   };
   return (
-    <div className="card" style={{ height: "100%" }}>
+    <div className="card position-relative" style={{ height: "100%" }}>
+      {isPreparing && (
+        <div
+          style={{
+            position: "absolute",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            height: "100%",
+            background: "white",
+            borderRadius: "0.25rem",
+            opacity: 0.8,
+          }}
+        />
+      )}
       <div
         className="card-body"
         style={{ height: "calc(100% - 48px)", overflowY: "auto" }}

@@ -1,8 +1,9 @@
-import React from "react";
+import React, { useContext } from "react";
 import Waypoints from "./Waypoints";
 import Settings from "./Settings";
 import GenericCard from "./Card";
 import Network from "./Network";
+import { CalculatorContext } from "src/context/CalculatorContext";
 
 const SideBarContainer = ({ children }) => {
   return (
@@ -21,6 +22,7 @@ const SideBarContainer = ({ children }) => {
 };
 
 const SideBar = () => {
+  const { isPreparing } = useContext(CalculatorContext);
   return (
     <SideBarContainer>
       <div className="p-1" style={{ height: "50vh" }}>
@@ -32,6 +34,21 @@ const SideBar = () => {
           bodyStyle={{ height: "calc(100% - 48px)", overflowY: "auto" }}
           footer={<Network />}
         >
+          {isPreparing && (
+            <div
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: "100%",
+                background: "white",
+                borderRadius: "0.25rem",
+                opacity: 0.8,
+              }}
+            />
+          )}
           <Settings />
         </GenericCard>
       </div>
