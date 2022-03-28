@@ -27,7 +27,7 @@ const Grapher = (
         });
         // Create edges
         if (index > 0) {
-          if (feature.properties.desc_) {
+          if (feature.properties?.desc_) {
             graph.addLink(
               getLocationHash(
                 roundCoord(feature.geometry.coordinates[index - 1], precision)
