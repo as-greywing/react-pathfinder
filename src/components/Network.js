@@ -9,7 +9,6 @@ import Layer from "../mapbox/layer";
 
 import { CalculatorContext } from "../context/CalculatorContext";
 import { NETWORK_RES } from "../constants";
-
 // Building the network graph to be utilised by the calculator
 
 const Network = () => {
@@ -35,11 +34,12 @@ const Network = () => {
       setIsPreparing(true);
       const hasNetwork = await localforage.getItem(`network-${networkRes}`);
       if (!hasNetwork || refetch) {
+        // localforage.setItem(`network-20`, NetworkJSON);
         await Promise.all(
           NETWORK_RES.map(async (network) => {
             try {
               const { data } = await axios(
-                `http://localhost:3123/network/${network}`
+                `network/network-${network}km-linestring.json`
               );
               localforage.setItem(`network-${network}`, data);
               console.log("FETCHED:", network, "km");

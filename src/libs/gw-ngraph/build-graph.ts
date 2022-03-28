@@ -1,5 +1,6 @@
 import { Position } from "@turf/helpers";
 import createGraph, { Graph as NGraph, NodeId } from "ngraph.graph";
+import roundCoord from "../gpf/round-coord";
 import {
   Graph,
   GraphObject,
@@ -8,45 +9,63 @@ import {
 } from "./types";
 import { alterFeatureCoordinates, getLocationHash } from "./utils";
 
+// Set to 0 if coordinate rounding is not required
+const precision = 0;
+
 const Grapher = (
   features: Array<GeoJSON.Feature<NetworkLineString>>
 ): GraphObject => {
   const graph: NGraph = createGraph();
   const coordHashObject: Array<HashCoordinateObject> = [];
-
   features.forEach((feature) => {
     if (feature.geometry && feature.geometry.coordinates) {
       feature.geometry.coordinates.forEach((coord: Position, index) => {
         // Add to coordinates
         coordHashObject.push({
-          location: coord,
-          hash: getLocationHash(coord),
+          location: roundCoord(coord, precision),
+          hash: getLocationHash(roundCoord(coord, precision)),
         });
         // Create edges
         if (index > 0) {
           if (feature.properties.desc_) {
             graph.addLink(
-              getLocationHash(feature.geometry.coordinates[index - 1]),
-              getLocationHash(feature.geometry.coordinates[index]),
+              getLocationHash(
+                roundCoord(feature.geometry.coordinates[index - 1], precision)
+              ),
+              getLocationHash(
+                roundCoord(feature.geometry.coordinates[index], precision)
+              ),
               {
                 desc_: feature.properties.desc_,
               }
             );
             graph.addLink(
-              getLocationHash(feature.geometry.coordinates[index]),
-              getLocationHash(feature.geometry.coordinates[index - 1]),
+              getLocationHash(
+                roundCoord(feature.geometry.coordinates[index], precision)
+              ),
+              getLocationHash(
+                roundCoord(feature.geometry.coordinates[index - 1], precision)
+              ),
               {
                 desc_: feature.properties.desc_,
               }
             );
           } else {
             graph.addLink(
-              getLocationHash(feature.geometry.coordinates[index - 1]),
-              getLocationHash(feature.geometry.coordinates[index])
+              getLocationHash(
+                roundCoord(feature.geometry.coordinates[index - 1], precision)
+              ),
+              getLocationHash(
+                roundCoord(feature.geometry.coordinates[index], precision)
+              )
             );
             graph.addLink(
-              getLocationHash(feature.geometry.coordinates[index]),
-              getLocationHash(feature.geometry.coordinates[index - 1])
+              getLocationHash(
+                roundCoord(feature.geometry.coordinates[index], precision)
+              ),
+              getLocationHash(
+                roundCoord(feature.geometry.coordinates[index - 1], precision)
+              )
             );
           }
         }
